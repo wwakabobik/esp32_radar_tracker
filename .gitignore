@@ -1,0 +1,42 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+.env
+daemon/.env
+daemon/data/
+
+# PlatformIO
+firmware/.pio/
+firmware/secrets.ini
+
+# Local runtime data
+*.db
+
+# Legacy security research — keep on disk, never commit
+FINDINGS.md
+SECURITY_AUDIT.md
+always_on.py
+chaos_flood.py
+spam_api.py
+flood_targets.py
+ghost_flood.py
+scan_targets.py
+scan_dense.py
+spt_ping.py
+signup_flood.py
+mitm_addon.py
+ghost_macs.json
+detect_device.sh
+dump_firmware.sh
+monitor_serial.sh
+capture_traffic.sh
+dumps/
+logs/
+captures/
+mitm_logs/
+
+# OS / IDE
+.DS_Store
+.cursor/
+*.swp

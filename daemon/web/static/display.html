@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Display Layout</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Display Layout</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/static/display.html" class="active">Display</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>OLED slots</h2>
+      <p class="hint">Configure what appears on each line of the device display.</p>
+      <form id="layoutForm"></form>
+      <button id="saveBtn" type="button">Save layout</button>
+      <p id="saveStatus"></p>
+    </section>
+
+    <section class="card preview">
+      <h2>Preview</h2>
+      <div class="oled">
+        <div id="line0">--</div>
+        <div id="line1">--</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/display.js"></script>
+</body>
+</html>
