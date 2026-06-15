@@ -14,11 +14,14 @@ public:
     using Callback = std::function<void(const ButtonMessage &)>;
     void begin(Callback cb);
     void loop();
+    void applyConfig();
 
 private:
     Callback callback_;
     unsigned long pressStart_[2] = {0, 0};
+    unsigned long lastChangeMs_[2] = {0, 0};
     bool wasDown_[2] = {false, false};
+    bool stableDown_[2] = {false, false};
     bool longSent_[2] = {false, false};
     bool readPressed(uint8_t pin) const;
 };

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Presence Hub</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Presence Hub</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/static/display.html">Display</a>
+      <a href="/static/settings.html" class="active">Settings</a>
+      <a href="/static/gestures.html">Gestures</a>
+      <a href="/static/sensor-log.html">Sensor log</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Telegram</h2>
+      <p class="hint">
+        Bot token and chat ID live in <code>daemon/.env</code>
+        (<code>HUB_TELEGRAM_TOKEN</code>, <code>HUB_TELEGRAM_CHAT_ID</code>).
+        Status: <strong id="telegramStatus">—</strong>
+      </p>
+      <label class="slider-row">
+        <input type="checkbox" id="standupEnabled" checked /> Standup reminders
+      </label>
+      <label class="slider-row">
+        Interval (minutes, default 120 = 2 h)
+        <input type="number" id="standupMin" min="30" max="480" value="120" />
+      </label>
+      <label class="slider-row">
+        Standup message
+        <textarea id="standupMessage" rows="2" style="width:100%"></textarea>
+      </label>
+      <label class="slider-row">
+        <input type="checkbox" id="morningEnabled" checked /> Morning sleep summary
+      </label>
+      <label class="slider-row">
+        Morning summary after (hour, local)
+        <input type="number" id="morningHour" min="0" max="23" value="8" />
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Work radar</h2>
+      <p class="hint">Desk presence detection range.</p>
+      <label class="slider-row">Min distance (cm) <input type="number" id="workMin" min="0" max="600" /></label>
+      <label class="slider-row">Max distance (cm) <input type="number" id="workMax" min="50" max="600" /></label>
+      <label class="slider-row">
+        Detection
+        <select id="workType">
+          <option value="both">Moving + stationary</option>
+          <option value="moving">Moving only</option>
+          <option value="stationary">Stationary only</option>
+        </select>
+      </label>
+      <label class="slider-row">Gate level <input type="number" id="gateWork" min="1" max="8" /></label>
+    </section>
+
+    <section class="card">
+      <h2>Sleep radar</h2>
+      <p class="hint">Place 0.5–1.2 m from chest; avoid windows and doors.</p>
+      <label class="slider-row">Breath max distance (cm) <input type="number" id="sleepMax" min="30" max="300" /></label>
+      <label class="slider-row">Energy threshold <input type="number" id="sleepEnergy" min="1" max="100" /></label>
+      <label class="slider-row">Gate level <input type="number" id="gateSleep" min="1" max="8" /></label>
+    </section>
+
+    <section class="card">
+      <h2>Media</h2>
+      <label class="slider-row">
+        Backend
+        <select id="mediaBackend">
+          <option value="spotify">Spotify (desktop app)</option>
+          <option value="system_keys">System media keys</option>
+        </select>
+      </label>
+      <p class="hint">Near-zone gesture → next track: <a href="/static/gestures.html">Gestures</a>.</p>
+    </section>
+
+    <button id="saveSettings" type="button">Save settings</button>
+    <p id="settingsStatus"></p>
+  </main>
+
+  <script src="/static/settings.js"></script>
+</body>
+</html>

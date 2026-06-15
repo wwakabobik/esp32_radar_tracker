@@ -1,10 +1,13 @@
 #pragma once
 
 #ifndef MQTT_HOST
-#define MQTT_HOST "192.168.1.100"
+#define MQTT_HOST ""
 #endif
 #ifndef MQTT_PORT
 #define MQTT_PORT 18830
+#endif
+#ifndef DISCOVERY_PORT
+#define DISCOVERY_PORT 18832
 #endif
 #ifndef WIFI_SSID
 #define WIFI_SSID "YOUR_WIFI"
@@ -16,6 +19,10 @@
 #define HOSTNAME "presence-hub"
 #endif
 
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "0.5.1"
+#endif
+
 #define MQTT_CLIENT_ID HOSTNAME
 #define MQTT_TOPIC_RADAR "hub/radar"
 #define MQTT_TOPIC_MODE "hub/mode"
@@ -24,6 +31,15 @@
 #define MQTT_TOPIC_GESTURE "hub/gesture"
 #define MQTT_TOPIC_OTA "hub/ota/trigger"
 #define MQTT_TOPIC_STATUS "hub/status"
+#define MQTT_TOPIC_SYNC_EVENTS "hub/sync/events"
+#define MQTT_TOPIC_SYNC_ACK "hub/sync/ack"
+#define MQTT_TOPIC_CONFIG "hub/config"
+#define MQTT_TOPIC_DEBUG "hub/debug"
+
+#define SYNC_BATCH_SIZE 25
+#define SYNC_INTERVAL_MS 1000
 
 #define HEARTBEAT_INTERVAL_MS 30000
 #define RADAR_PUBLISH_INTERVAL_MS 1000
+#define RADAR_PUBLISH_INTERVAL_MEDIA_MS 200
+#define MEDIA_RADAR_POLLS 8

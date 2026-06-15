@@ -12,6 +12,8 @@ firmware/secrets.ini
 
 # Local runtime data
 *.db
+.chaos_state.json
+PLAN_RU.md
 
 # Legacy security research — keep on disk, never commit
 FINDINGS.md
@@ -25,12 +27,9 @@ scan_targets.py
 scan_dense.py
 spt_ping.py
 signup_flood.py
-mitm_addon.py
 ghost_macs.json
-detect_device.sh
-dump_firmware.sh
-monitor_serial.sh
-capture_traffic.sh
+
+# Service script output (repo root)
 dumps/
 logs/
 captures/

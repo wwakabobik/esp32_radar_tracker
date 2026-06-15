@@ -18,8 +18,11 @@ FIRMWARE_BIN = FIRMWARE_DIR / "firmware.bin"
 TELEGRAM_TOKEN = os.getenv("HUB_TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("HUB_TELEGRAM_CHAT_ID", "")
 
-STANDUP_INTERVAL_MIN = int(os.getenv("HUB_STANDUP_MIN", "45"))
-DEVICE_MAC = os.getenv("HUB_DEVICE_MAC", "presence-hub")
+STANDUP_INTERVAL_MIN = int(os.getenv("HUB_STANDUP_MIN", "120"))
+MORNING_SUMMARY_HOUR = int(os.getenv("HUB_MORNING_HOUR", "8"))
+DISCOVERY_PORT = int(os.getenv("HUB_DISCOVERY_PORT", "18832"))
+
+WORK_TRACKING_MODES = frozenset({"work", "media"})
 
 TOPIC_RADAR = "hub/radar"
 TOPIC_MODE = "hub/mode"
@@ -28,8 +31,39 @@ TOPIC_DISPLAY = "hub/display"
 TOPIC_GESTURE = "hub/gesture"
 TOPIC_OTA = "hub/ota/trigger"
 TOPIC_STATUS = "hub/status"
+TOPIC_SYNC_EVENTS = "hub/sync/events"
+TOPIC_SYNC_ACK = "hub/sync/ack"
+TOPIC_DEBUG_GESTURE = "hub/debug/gesture"
 
 DEFAULT_DISPLAY_LAYOUT = [
-    {"slot": 0, "widget": "clock"},
-    {"slot": 1, "widget": "session"},
+    {"slot": 0, "widget": "clock", "font": "large"},
+    {"slot": 1, "widget": "session", "font": "medium"},
 ]
+
+DISPLAY_FONTS = ("small", "medium", "large")
+
+TOPIC_CONFIG = "hub/config"
+
+DEFAULT_SETTINGS = {
+    "display_brightness": "255",
+    "display_line_count": "2",
+    "sleep_display_mode": "off",
+    "standup_min": str(STANDUP_INTERVAL_MIN),
+    "standup_enabled": "1",
+    "telegram_standup_message": "Time to stand up and walk around — you have been at the desk for a while.",
+    "morning_summary_enabled": "1",
+    "morning_summary_hour": str(MORNING_SUMMARY_HOUR),
+    "work_presence_min_cm": "20",
+    "work_presence_max_cm": "400",
+    "work_presence_type": "both",
+    "sleep_breath_max_cm": "120",
+    "sleep_energy_min": "5",
+    "radar_gate_work": "6",
+    "radar_gate_sleep": "8",
+    "media_backend": "spotify",
+    "gesture_zone_min_cm": "12",
+    "gesture_zone_max_cm": "28",
+    "gesture_hold_ms": "400",
+    "gesture_debounce_ms": "1200",
+    "gesture_debug": "0",
+}

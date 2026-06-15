@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from config import WORK_TRACKING_MODES
 from db import end_session, get_active_session, get_today_work_seconds, start_session
 
 
@@ -12,27 +13,25 @@ class WorkTracker:
         self.reminder_active = False
 
     async def on_mode_change(self, mode: str) -> None:
-        session = await get_active_session()
-        if mode == "work" and not session:
+        if mode in WORK_TRACKING_MODES:
+            await self.ensure_session()
+        elif mode == "sleep":
+            session = await get_active_session()
+            if session:
+                await end_session(session["id"])
+
+    async def ensure_session(self) -> None:
+        if not await get_active_session():
             await start_session("work")
-        elif mode != "work" and session:
-            await end_session(session["id"])
 
     async def on_radar(self, data: dict) -> None:
-        present = bool(data.get("presence"))
-        session = await get_active_session()
-        if present and not session:
-            await start_session("work")
-            self.last_standup_at = datetime.now(timezone.utc)
-        if not present and session and not session["paused"]:
-            await end_session(session["id"])
-        self.present = present
+        self.present = bool(data.get("presence"))
 
     async def session_seconds(self) -> int:
         session = await get_active_session()
-        if not session or session["paused"]:
+        if not session:
             return 0
-        return int(datetime.now(timezone.utc).timestamp() - session["started_at"])
+        return max(0, int(datetime.now(timezone.utc).timestamp() - session["started_at"]))
 
     async def today_seconds(self) -> int:
         return await get_today_work_seconds()
@@ -40,8 +39,7 @@ class WorkTracker:
     async def check_standup(self, interval_min: int) -> bool:
         if not self.present:
             return False
-        session = await get_active_session()
-        if not session or session["paused"]:
+        if not await get_active_session():
             return False
         now = datetime.now(timezone.utc)
         if self.last_standup_at is None:

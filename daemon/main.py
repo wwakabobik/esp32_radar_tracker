@@ -7,6 +7,8 @@ import uvicorn
 from dotenv import load_dotenv
 
 from db import init_db
+from device_config import publish_device_config
+from discovery import discovery_loop
 from hub import HubDaemon, mqtt_loop
 from ota_server import start_ota_server
 from telegram_bot import create_bot_task
@@ -25,12 +27,15 @@ async def run_web(app) -> None:
 async def main() -> None:
     load_dotenv()
     await init_db()
+    await publish_device_config()
 
     daemon = HubDaemon()
+    await daemon.work.ensure_session()
     app = create_app(daemon)
 
     tasks = [
         asyncio.create_task(mqtt_loop(daemon), name="mqtt"),
+        asyncio.create_task(discovery_loop(), name="discovery"),
         asyncio.create_task(daemon.display_loop(), name="display"),
         asyncio.create_task(daemon.standup_loop(), name="standup"),
         asyncio.create_task(start_ota_server(), name="ota"),

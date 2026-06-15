@@ -227,7 +227,6 @@ esp32_spt/
 │   │   ├── app.py
 │   │   └── static/
 │   └── ota_server.py
-├── PLAN_RU.md
 ├── PLAN_EN.md
 └── README.md
 ```

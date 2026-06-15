@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config import WEB_HOST, WEB_PORT
-from db import get_display_layout, get_today_work_seconds, set_display_layout
 from hub import HubDaemon
-from web.routes import dashboard, display, settings
+from web.routes import dashboard, display, gestures, sensor, settings
 
 
 class LayoutItem(BaseModel):
@@ -28,6 +27,8 @@ def create_app(daemon: HubDaemon) -> FastAPI:
 
     app.include_router(dashboard.router)
     app.include_router(display.router)
+    app.include_router(gestures.router)
+    app.include_router(sensor.router)
     app.include_router(settings.router)
 
     static_dir = __import__("pathlib").Path(__file__).parent / "static"

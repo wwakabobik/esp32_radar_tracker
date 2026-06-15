@@ -1,35 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Display Layout</title>
+  <title>Display — Presence Hub</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <header>
-    <h1>Display Layout</h1>
+    <h1>Presence Hub</h1>
     <nav>
       <a href="/">Dashboard</a>
       <a href="/static/display.html" class="active">Display</a>
+      <a href="/static/settings.html">Settings</a>
+      <a href="/static/gestures.html">Gestures</a>
     </nav>
   </header>
 
   <main>
     <section class="card">
-      <h2>OLED slots</h2>
-      <p class="hint">Configure what appears on each line of the device display.</p>
+      <h2>OLED layout</h2>
+      <p class="hint">Настройка экрана гаджета. Save → сразу на устройство по MQTT.</p>
+
+      <label class="slider-row">
+        Линий на экране
+        <select id="lineCount">
+          <option value="0">0 — пустой экран</option>
+          <option value="1">1 линия</option>
+          <option value="2" selected>2 линии</option>
+        </select>
+      </label>
+
       <form id="layoutForm"></form>
+
+      <label class="slider-row">
+        Brightness
+        <input type="range" id="brightness" min="10" max="255" value="255" />
+        <span id="brightnessVal">255</span>
+      </label>
+      <label class="slider-row">
+        Sleep display
+        <select id="sleepDisplay">
+          <option value="off">Off (night)</option>
+          <option value="minimal">Minimal dim</option>
+        </select>
+      </label>
       <button id="saveBtn" type="button">Save layout</button>
       <p id="saveStatus"></p>
     </section>
 
     <section class="card preview">
-      <h2>Preview</h2>
-      <div class="oled">
-        <div id="line0">--</div>
-        <div id="line1">--</div>
+      <h2>Live preview</h2>
+      <div class="oled" id="oledPreview">
+        <div class="oled-line large" id="line0">--</div>
+        <div class="oled-line medium" id="line1">--</div>
+        <div class="oled-empty" id="oledEmpty" hidden>Пустой экран</div>
       </div>
+    </section>
+
+    <section class="card">
+      <h2>Кнопки на гаджете</h2>
+      <table class="help-table">
+        <tr><th>Btn1 short</th><td>work: пауза сессии</td></tr>
+        <tr><th>Btn1 long</th><td>work: сброс сессии</td></tr>
+        <tr><th>Btn2</th><td>work → sleep → media → work</td></tr>
+        <tr><th>Btn1 / Btn2</th><td>sleep: лёг / проснулся</td></tr>
+      </table>
     </section>
   </main>
 

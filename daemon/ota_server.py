@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from config import FIRMWARE_BIN, OTA_HOST, OTA_PORT
+from config import FIRMWARE_BIN, OTA_PORT
 
 
 async def firmware_handler(_: web.Request) -> web.Response:
@@ -16,5 +16,5 @@ async def start_ota_server() -> None:
     app.router.add_get("/firmware.bin", firmware_handler)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, OTA_HOST, OTA_PORT)
+    site = web.TCPSite(runner, "0.0.0.0", OTA_PORT)
     await site.start()

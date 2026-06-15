@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Presence Hub</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <header>
@@ -12,6 +13,9 @@
     <nav>
       <a href="/" class="active">Dashboard</a>
       <a href="/static/display.html">Display</a>
+      <a href="/static/settings.html">Settings</a>
+      <a href="/static/gestures.html">Gestures</a>
+      <a href="/static/sensor-log.html">Sensor log</a>
     </nav>
   </header>
 
@@ -22,12 +26,26 @@
         <p id="mode">Mode: -</p>
         <p id="online">Online: -</p>
         <p id="present">Present: -</p>
+        <button id="ota-btn" type="button">OTA firmware update</button>
+        <p id="ota-status"></p>
       </div>
       <div class="card">
         <h2>Today</h2>
         <p id="today">0h 00m</p>
         <p id="session">Session: 0m</p>
       </div>
+    </section>
+    <section class="card chart-card">
+      <div class="chart-toolbar">
+        <h2 id="chart-title">Графики</h2>
+        <select id="chart-type" aria-label="Тип графика">
+          <option value="week_total">Накопительно — 7 дней</option>
+          <option value="week_timeline">Интервалы присутствия</option>
+          <option value="sleep">Сон</option>
+        </select>
+      </div>
+      <p id="chart-hint" class="chart-hint"></p>
+      <canvas id="week-chart" height="160"></canvas>
     </section>
   </main>
 

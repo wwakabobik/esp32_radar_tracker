@@ -1,121 +1,216 @@
 # Personal Presence Hub
 
-ESP32 + HLK-LD2410C превращается в личный гаджет: трекинг присутствия, сон, управление музыкой жестами. Мозг — Python-демон на Mac, связь через MQTT.
+ESP32 + HLK-LD2410C — personal presence tracker: work sessions, sleep monitoring, near-zone media gestures. A Python daemon on your Mac is the brain; the device talks over MQTT. **No SPT cloud.**
 
-Подробное ТЗ: [PLAN_RU.md](PLAN_RU.md) / [PLAN_EN.md](PLAN_EN.md)
+Detailed spec: [PLAN_EN.md](PLAN_EN.md)
 
-## Железо
+## Network
 
-| Компонент | Интерфейс | GPIO (предположительно) |
+ESP32 and Mac must be on the **same Wi‑Fi**.
+
+| Node | Config |
+|---|---|
+| ESP32 WiFi | `firmware/secrets.ini` → `WIFI_SSID`, `WIFI_PASS` |
+| ESP32 → hub | **UDP discovery** — ESP32 broadcasts, Mac replies with its current IP |
+| Mosquitto | `0.0.0.0:18830` ([`daemon/mosquitto.conf`](daemon/mosquitto.conf)) |
+| Discovery | UDP `:18832` — response includes `mqtt_host` / `ota_host` |
+
+**You do not need to hard-code the Mac IP.** The router may reassign it; the device re-discovers the hub on the next broadcast. The last address is cached in ESP32 NVS; after three failed MQTT connects the cache is cleared and discovery runs again.
+
+Optional: `HUB_LAN_IP` in `daemon/.env` if automatic LAN IP detection fails on your Mac.
+
+## Offline buffer
+
+ESP32 **always** writes events to LittleFS, even without the Mac:
+
+| Event | Mode |
+|---|---|
+| `presence` on/off | work |
+| `mode` | all |
+| `button` | all |
+| `gesture` next | media |
+| `sleep_start` / `sleep_end` / `sleep_movement` | sleep |
+
+After Wi‑Fi: NTP → real timestamps. When the Mac is online: UDP discovery → MQTT → batched `hub/sync/events` → daemon restores sessions and sleep in SQLite → `hub/sync/ack` → device buffer cleared.
+
+Mode is stored in NVS (survives ESP32 reboot).
+
+## Hardware
+
+| Component | Interface | GPIO |
 |---|---|---|
 | ESP32-D0WD-V3 | — | — |
 | HLK-LD2410C | UART | RX=16, TX=17 (likely) |
-| OLED SSD1306 | I2C | SDA=21, SCL=22, addr 0x3C (likely) |
-| 2 кнопки | GPIO | 32, 33 (confirmed) |
+| OLED SSD1306 | I2C | SDA=21, SCL=22, 0x3C (likely) |
+| 2 buttons | GPIO | 18 (btn1), 5 (btn2), active LOW |
 
-Пины задаются в `firmware/src/pins.h`. Если дисплей или радар не заводятся — поправь там или в `platformio.ini`.
+Pins: [`firmware/src/pins.h`](firmware/src/pins.h). Boot serial prints the pin map.
 
-## Требования
-
-- macOS
-- Python 3.12+
-- [PlatformIO](https://platformio.org/) — для прошивки
-- Mosquitto: `brew install mosquitto`
-
-## Быстрый старт
-
-### 1. Демон на Mac
+## Requirements
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+brew install mosquitto platformio
+python3 -m venv venv && source venv/bin/activate
 pip install -r daemon/requirements.txt
+```
 
-cp daemon/.env.example daemon/.env
-# опционально: HUB_TELEGRAM_TOKEN, HUB_TELEGRAM_CHAT_ID
+## First flash checklist
 
+1. `cp firmware/secrets.ini.example firmware/secrets.ini` — WiFi only
+2. `cp daemon/.env.example daemon/.env` — Telegram tokens (optional)
+3. `./daemon/run.sh` — start daemon (mosquitto + web + MQTT)
+4. `cd firmware && pio run` — build
+5. `./scripts/flash_firmware.sh` — flash over USB
+6. `pio device monitor` — expect: `Radar ready`, `WiFi OK`, `MQTT connected`
+7. http://127.0.0.1:18080 — `Online: yes`
+
+## Quick start
+
+### Daemon
+
+```bash
 ./daemon/run.sh
 ```
 
-| Сервис | URL / порт |
+| Service | URL / port |
 |---|---|
 | Web UI | http://127.0.0.1:18080 |
-| Настройка дисплея | http://127.0.0.1:18080/static/display.html |
-| OTA | http://127.0.0.1:18081/firmware.bin |
-| MQTT | `127.0.0.1:18830` |
+| Display layout | http://127.0.0.1:18080/static/display.html |
+| Settings (radar, Telegram, media) | http://127.0.0.1:18080/static/settings.html |
+| Gestures (near-zone calibration) | http://127.0.0.1:18080/static/gestures.html |
+| Sensor log (live radar/events) | http://127.0.0.1:18080/static/sensor-log.html |
+| OTA binary | http://\<LAN-IP\>:18081/firmware.bin |
+| MQTT (ESP32) | \<LAN-IP\>:18830 |
 
-### 2. Прошивка ESP32
+Login autostart on Mac:
 
 ```bash
-cd firmware
-# WiFi и IP мака — в platformio.ini или secrets.ini (см. secrets.ini.example)
-pio run -t upload
-pio device monitor
+./scripts/install_launchd.sh
 ```
 
-`MQTT_HOST` в `platformio.ini` — IP твоего Mac в локальной сети (не `127.0.0.1`).
+### Firmware
 
-## Режимы
+```bash
+./scripts/flash_firmware.sh          # USB
+cd firmware && pio device monitor      # serial logs
+```
 
-| Режим | Кнопка 2 | Что делает |
+## Modes
+
+| Mode | Button 2 | Button 1 |
 |---|---|---|
-| **work** | по умолчанию | Трекинг за столом, напоминания «встань» |
-| **sleep** | переключить | Анализ дыхания у кровати |
-| **media** | переключить | Жесты → Music.app |
+| **work** | cycle mode | short: pause; long: reset session |
+| **sleep** | → media | btn1: went to bed; btn2: woke up + exit sleep |
+| **media** | cycle mode | short: pause; long: reset; + near-zone gesture |
 
-Кнопка 1 в work: пауза/возобновление сессии.
+Media is work + gestures: **work log and standup continue**; the session closes only when entering **sleep**. Auto-sleep from stillness is disabled — sleep starts only after btn1 “went to bed”.
 
-## Telegram-бот (aiogram)
+## Display (web config)
 
-Команды (нужен `HUB_TELEGRAM_TOKEN` в `.env`):
+http://127.0.0.1:18080/static/display.html — up to **3 lines**, widget + font size (large/medium/small), brightness. Save → MQTT → OLED without reflashing.
+
+Widgets: `clock`, `session`, `today`, `track`, `standup_timer`, `reminder`, `mode`, `status`, `sleep`.
+
+## Standup reminders
+
+In **work** or **media**, if you stay present with an active session longer than the configured interval (default **120 min**), the daemon shows a reminder on the display and sends Telegram (if configured). Interval, enable/disable, and message text: **Settings** web page. Reset: long press btn1.
+
+## Morning sleep summary
+
+Once per day, after **sleep** ends and local time is past the configured hour (default **8:00**), Telegram receives: `Good morning. Sleep: Xh, movements: N`. Enable/disable and hour: **Settings**.
+
+## Sleep placement
+
+LD2410C for sleep watches **0–1.2 m** (configurable in Settings). Nightstand **0.5–1.2 m** from chest; avoid doors and windows. Screen at night: off or minimal (Display page). Data is buffered on ESP32 when offline.
+
+## Media — near-zone gesture
+
+The LD2410 is **one-dimensional**: it sees distance along the beam, not true X/Y. In **media** mode, hold your hand in the configured near zone (default **12–28 cm**) for ~400 ms → **next track** (Spotify or system media keys). Leave the zone to re-arm.
+
+Calibration and live radar: http://127.0.0.1:18080/static/gestures.html — enable **Debug** for MQTT `hub/debug/gesture`.
+
+Media backend (Spotify vs system keys): **Settings**.
+
+## Telegram
+
+**Credentials** (not editable in the web UI): `daemon/.env`
+
+- `HUB_TELEGRAM_TOKEN`
+- `HUB_TELEGRAM_CHAT_ID`
+
+**Web Settings:** standup interval, standup message, morning summary enable/hour.
+
+Bot commands:
 
 ```
-/status   /today   /sleep
-/standup 45        — интервал напоминаний (мин)
+/status  /today  /week  /sleep
+/standup 120
 /mode work|sleep|media
-/update             — OTA прошивки
+/update
 /settings
 ```
 
-## Display Layout Engine
+Defaults in `.env.example`: `HUB_STANDUP_MIN=120`, `HUB_MORNING_HOUR=8`.
 
-Через веб-интерфейс настраиваешь, что показывать на каждой строке OLED:
+## OTA (over the air)
 
-`clock`, `date`, `session`, `today`, `track`, `reminder`, `standup_timer`, `mode`, `status`
+1. `cd firmware && pio run`
+2. Daemon running (OTA URL uses current LAN IP)
+3. Trigger: web dashboard button, Telegram `/update`, or MQTT `hub/ota/trigger`
+4. ESP32 downloads `http://<LAN-IP>:18081/firmware.bin` and reboots
 
-Настройки хранятся в SQLite (`daemon/data/hub.db`), демон шлёт готовый текст на ESP32 через MQTT `hub/display`.
+## Service scripts
 
-## OTA
+Development / diagnostics under `scripts/service/` (English only):
 
-1. Собери прошивку: `cd firmware && pio run`
-2. Бинарник: `firmware/.pio/build/esp32dev/firmware.bin`
-3. Запусти демон и отправь `/update` в Telegram или опубликуй в `hub/ota/trigger`
+| Script | Purpose |
+|---|---|
+| `detect_device.sh` | Find USB serial port, print chip/flash info |
+| `dump_firmware.sh` | Read full flash → `dumps/` |
+| `monitor_serial.sh` | Colorized serial monitor → `logs/` |
+| `capture_traffic.sh` | tshark / mitmproxy helpers → `captures/`, `mitm_logs/` |
+| `mitm_addon.py` | mitmdump addon for request/response logging |
 
-## Структура проекта
+```bash
+./scripts/service/detect_device.sh
+./scripts/service/monitor_serial.sh
+./scripts/service/capture_traffic.sh help
+```
+
+Requires repo-root `venv/` with `esptool`, `pyserial`, and optionally `mitmproxy` / system `tshark`.
+
+## Restore stock SPT firmware
+
+```bash
+./venv/bin/esptool --port /dev/cu.usbserial-0001 write_flash 0x0 dumps/firmware_20260605_135023.bin
+```
+
+## Layout
 
 ```
 esp32_spt/
-├── firmware/          # PlatformIO, C++
-├── daemon/            # Python asyncio демон
-│   ├── main.py
-│   ├── hub.py
-│   ├── display_engine.py
-│   ├── telegram_bot.py
-│   ├── ota_server.py
-│   ├── web/           # FastAPI + static
-│   └── run.sh
-├── PLAN_RU.md
-└── PLAN_EN.md
+├── firmware/              # PlatformIO
+├── daemon/                # Python asyncio hub
+├── scripts/
+│   ├── flash_firmware.sh
+│   ├── install_launchd.sh
+│   └── service/           # detect, dump, serial, traffic tools
+├── dumps/                 # firmware backups (gitignored)
+├── PLAN_EN.md
+└── README.md
 ```
 
-## MQTT-топики
+## MQTT topics
 
-| Топик | Направление |
+| Topic | Direction |
 |---|---|
-| `hub/radar` | ESP32 → демон |
-| `hub/mode` | двусторонний |
-| `hub/button` | ESP32 → демон |
-| `hub/display` | демон → ESP32 |
-| `hub/gesture` | ESP32 → демон |
-| `hub/ota/trigger` | демон → ESP32 |
-| `hub/status` | ESP32 → демон (heartbeat) |
+| `hub/radar` | ESP32 → daemon |
+| `hub/mode` | bidirectional |
+| `hub/button` | ESP32 → daemon |
+| `hub/display` | daemon → ESP32 |
+| `hub/config` | daemon → ESP32 |
+| `hub/gesture` | ESP32 → daemon |
+| `hub/debug/gesture` | ESP32 → daemon (when debug on) |
+| `hub/ota/trigger` | daemon → ESP32 |
+| `hub/status` | ESP32 → daemon |
+| `hub/sync/events` / `hub/sync/ack` | offline sync |

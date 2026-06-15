@@ -11,7 +11,6 @@ from aiomqtt import Client
 from config import (
     MQTT_HOST,
     MQTT_PORT,
-    OTA_HOST,
     OTA_PORT,
     STANDUP_INTERVAL_MIN,
     TELEGRAM_CHAT_ID,
@@ -19,8 +18,9 @@ from config import (
     TOPIC_MODE,
     TOPIC_OTA,
 )
-from db import get_display_layout, get_today_work_seconds, set_setting
+from db import get_display_layout, get_today_work_seconds, get_week_work_seconds, set_setting
 from hub import HubDaemon
+from netutil import hub_lan_ip
 
 
 def _fmt_hours(seconds: int) -> str:
@@ -56,6 +56,14 @@ async def create_bot_task(daemon: HubDaemon):
             return
         total = await get_today_work_seconds()
         await message.answer(f"Today at desk: {_fmt_hours(total)}")
+
+    @dp.message(Command("week"))
+    async def cmd_week(message: Message) -> None:
+        if not allowed(message):
+            return
+        days = await get_week_work_seconds()
+        lines = [f"{d['date']}: {_fmt_hours(d['seconds'])}" for d in days]
+        await message.answer("Last 7 days at desk:\n" + "\n".join(lines))
 
     @dp.message(Command("sleep"))
     async def cmd_sleep(message: Message) -> None:
@@ -94,7 +102,7 @@ async def create_bot_task(daemon: HubDaemon):
     async def cmd_update(message: Message) -> None:
         if not allowed(message):
             return
-        url = f"http://{OTA_HOST}:{OTA_PORT}/firmware.bin"
+        url = f"http://{hub_lan_ip()}:{OTA_PORT}/firmware.bin"
         payload = json.dumps({"url": url})
         async with Client(MQTT_HOST, MQTT_PORT) as client:
             await client.publish(TOPIC_OTA, payload, qos=1)

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sensor log — Presence Hub</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    #logTable { width: 100%; border-collapse: collapse; font-size: 12px; font-family: ui-monospace, monospace; }
+    #logTable th, #logTable td { border-bottom: 1px solid var(--border, #333); padding: 4px 6px; text-align: left; vertical-align: top; }
+    #logTable tbody tr:hover { background: rgba(255,255,255,0.04); }
+    .log-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .log-toolbar label { display: flex; gap: 6px; align-items: center; }
+    #logBody { max-height: 70vh; overflow: auto; }
+    .kind-radar { color: #7dd3fc; }
+    .kind-gesture { color: #86efac; }
+    .kind-gesture_debug { color: #fcd34d; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Presence Hub</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/static/display.html">Display</a>
+      <a href="/static/settings.html">Settings</a>
+      <a href="/static/gestures.html">Gestures</a>
+      <a href="/static/sensor-log.html" class="active">Sensor log</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Live log датчика (HTTP)</h2>
+      <p class="hint">
+        Сырой поток MQTT: <code>hub/radar</code>, <code>hub/gesture</code>, <code>hub/debug/gesture</code>.
+        <strong>Ближняя зона → next</strong>. Поля ts: hub = Mac, device = ESP32.
+      </p>
+      <p class="hint">
+        <strong>Тест жестов:</strong> media mode, debug ON → Clear log → по одному:
+        ① вниз (к датчику) ② вверх ③ вниз ④ вверх — между жестами пауза 2 с.
+        Слева/справа радар не различает.
+      </p>
+      <div class="log-toolbar">
+        <label><input type="checkbox" id="autoScroll" checked /> Авто-скролл</label>
+        <label>Фильтр
+          <select id="kindFilter">
+            <option value="">все</option>
+            <option value="radar">radar</option>
+            <option value="gesture">gesture</option>
+            <option value="gesture_debug">gesture_debug</option>
+          </select>
+        </label>
+        <button type="button" id="clearLog">Clear log</button>
+        <button type="button" id="exportLog">Copy JSON</button>
+        <span id="logStatus">—</span>
+      </div>
+      <div id="logBody">
+        <table id="logTable">
+          <thead>
+            <tr><th>#</th><th>hub</th><th>device</th><th>kind</th><th>mode</th><th>summary</th></tr>
+          </thead>
+          <tbody id="logRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/static/sensor-log.js"></script>
+</body>
+</html>
