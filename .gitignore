@@ -24,22 +24,10 @@ firmware/secrets.ini
 
 # Local runtime data
 *.db
-.chaos_state.json
-PLAN_RU.md
 
-# Legacy security research — keep on disk, never commit
-FINDINGS.md
-SECURITY_AUDIT.md
-always_on.py
-chaos_flood.py
-spam_api.py
-flood_targets.py
-ghost_flood.py
-scan_targets.py
-scan_dense.py
-spt_ping.py
-signup_flood.py
-ghost_macs.json
+# Local security research (keep on disk, never commit)
+.security/
+PLAN_RU.md
 
 # Service script output (repo root)
 dumps/
