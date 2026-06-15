@@ -253,5 +253,5 @@ static void handleDisplayMessage(const String &message) {
         slot.scroll = item["scroll"] | false;
         if (slot.text.length()) slots.push_back(slot);
     }
-    display.render(slots, brightness);
+    display.render(slots, brightness, doc["line_count"] | 2);
 }

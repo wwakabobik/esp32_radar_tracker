@@ -20,7 +20,7 @@
 #endif
 
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "0.5.1"
+#define FIRMWARE_VERSION "0.5.2"
 #endif
 
 #define MQTT_CLIENT_ID HOSTNAME

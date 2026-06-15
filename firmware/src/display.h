@@ -13,7 +13,7 @@ struct DisplaySlot {
 class Display {
 public:
     bool begin();
-    void render(const std::vector<DisplaySlot> &slots, uint8_t brightness = 0);
+    void render(const std::vector<DisplaySlot> &slots, uint8_t brightness = 0, uint8_t lineCount = 2);
     void showBootMessage(const char *line1, const char *line2 = "");
     void showOverlay(const char *line1, const char *line2 = "", uint16_t durationMs = 2000);
     void setBrightness(uint8_t level);
@@ -24,10 +24,12 @@ public:
 
 private:
     static constexpr int kScrollMaxWidth = 106;
+    static constexpr int kScrollMaxWidthSingle = 128;
 
     bool ready_ = false;
     bool enabled_ = true;
     uint8_t brightness_ = 255;
+    uint8_t configuredLineCount_ = 2;
     String sleepMode_ = "off";
     String modeLetter_;
     std::vector<DisplaySlot> lastSlots_;
@@ -40,8 +42,10 @@ private:
 
     void drawSlots(const std::vector<DisplaySlot> &slots);
     void drawModeBadge();
-    void drawLineText(int y, const DisplaySlot &slot);
+    void drawLineText(int y, const DisplaySlot &slot, const String &font, int scrollWidth);
     void applyFont(const String &font);
-    int fontBaseline(const String &font) const;
-    int fontStep(const String &font) const;
+    String effectiveFont(const String &font) const;
+    int lineBaseline(const String &font, bool singleLine, uint8_t pos) const;
+    int scrollMaxWidth() const;
+    void clearScreen();
 };
