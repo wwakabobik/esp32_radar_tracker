@@ -80,6 +80,7 @@ class DisplayEngine:
         return {
             "brightness": max(10, min(255, brightness)),
             "sleep_display_mode": sleep_display,
+            "line_count": line_count,
             "widgets": widgets,
         }
 

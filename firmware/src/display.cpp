@@ -63,6 +63,13 @@ bool Display::begin() {
     return true;
 }
 
+void Display::clearScreen() {
+    if (!ready_) return;
+    u8g2.clearDisplay();
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
+}
+
 void Display::setBrightness(uint8_t level) {
     brightness_ = level;
     if (ready_) u8g2.setContrast(level);
@@ -75,10 +82,7 @@ void Display::setSleepMode(const char *mode) {
 void Display::setEnabled(bool enabled) {
     if (sleepMode_ == "off" && !enabled) {
         enabled_ = false;
-        if (ready_) {
-            u8g2.clearDisplay();
-            u8g2.sendBuffer();
-        }
+        clearScreen();
         return;
     }
     enabled_ = true;
@@ -86,7 +90,9 @@ void Display::setEnabled(bool enabled) {
 }
 
 void Display::applyFont(const String &font) {
-    if (font == "large") {
+    if (font == "xlarge") {
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+    } else if (font == "large") {
         u8g2.setFont(u8g2_font_logisoso24_tf);
     } else if (font == "small") {
         u8g2.setFont(u8g2_font_6x12_tf);
@@ -95,16 +101,33 @@ void Display::applyFont(const String &font) {
     }
 }
 
-int Display::fontBaseline(const String &font) const {
-    if (font == "large") return 26;
-    if (font == "small") return 11;
-    return 15;
+String Display::effectiveFont(const String &font) const {
+    if (configuredLineCount_ != 1) return font;
+    if (font == "small") return "medium";
+    if (font == "medium") return "large";
+    if (font == "large") return "xlarge";
+    return font;
 }
 
-int Display::fontStep(const String &font) const {
-    if (font == "large") return 28;
-    if (font == "small") return 12;
-    return 17;
+int Display::lineBaseline(const String &font, bool singleLine, uint8_t pos) const {
+    if (singleLine) {
+        if (font == "xlarge") return 52;
+        if (font == "large") return 46;
+        if (font == "small") return 38;
+        return 42;
+    }
+    if (pos == 0) {
+        if (font == "large") return 26;
+        if (font == "small") return 12;
+        return 18;
+    }
+    if (font == "large") return 54;
+    if (font == "small") return 44;
+    return 50;
+}
+
+int Display::scrollMaxWidth() const {
+    return configuredLineCount_ == 1 ? kScrollMaxWidthSingle : kScrollMaxWidth;
 }
 
 void Display::showBootMessage(const char *line1, const char *line2) {
@@ -173,18 +196,18 @@ void Display::loop() {
     }
 }
 
-void Display::drawLineText(int y, const DisplaySlot &slot) {
-    applyFont(slot.font);
+void Display::drawLineText(int y, const DisplaySlot &slot, const String &font, int scrollWidth) {
+    applyFont(font);
     const int textWidth = u8g2.getStrWidth(slot.text.c_str());
-    if (!slot.scroll || textWidth <= kScrollMaxWidth) {
+    if (!slot.scroll || textWidth <= scrollWidth) {
         u8g2.drawStr(0, y, slot.text.c_str());
         return;
     }
     String marquee = slot.text + "   ";
     const int marqueeWidth = u8g2.getStrWidth(marquee.c_str());
     const int offset = scrollOffset_ % marqueeWidth;
-    const int clipTop = max(0, y - 16);
-    u8g2.setClipWindow(0, clipTop, kScrollMaxWidth, min(63, y + 2));
+    const int clipTop = max(0, y - 20);
+    u8g2.setClipWindow(0, clipTop, scrollWidth, min(63, y + 4));
     u8g2.drawStr(-offset, y, marquee.c_str());
     u8g2.setMaxClipWindow();
 }
@@ -199,48 +222,55 @@ void Display::drawSlots(const std::vector<DisplaySlot> &slots) {
 
     u8g2.clearBuffer();
 
-    std::vector<const DisplaySlot *> visible;
-    for (const auto &slot : slots) {
-        if (!slot.text.isEmpty()) visible.push_back(&slot);
-    }
-    if (visible.empty()) {
-        drawModeBadge();
+    if (configuredLineCount_ == 0) {
         u8g2.sendBuffer();
         return;
     }
 
-    const size_t lineCount = visible.size();
+    std::vector<const DisplaySlot *> visible;
+    for (const auto &slot : slots) {
+        if (slot.text.isEmpty()) continue;
+        if (slot.pos >= configuredLineCount_) continue;
+        visible.push_back(&slot);
+    }
+    if (visible.empty()) {
+        if (configuredLineCount_ != 1) drawModeBadge();
+        u8g2.sendBuffer();
+        return;
+    }
+
+    const bool singleLine = configuredLineCount_ == 1;
+    const int scrollWidth = scrollMaxWidth();
     scrollActive_ = false;
     for (const auto *slot : visible) {
-        applyFont(slot->font);
-        if (slot->scroll && u8g2.getStrWidth(slot->text.c_str()) > kScrollMaxWidth) {
+        const String font = effectiveFont(slot->font);
+        applyFont(font);
+        if (slot->scroll && u8g2.getStrWidth(slot->text.c_str()) > scrollWidth) {
             scrollActive_ = true;
         }
     }
     for (const auto *slot : visible) {
-        applyFont(slot->font);
-        int y = 38;
-        if (lineCount == 1) {
-            if (slot->font == "large") y = 42;
-            else if (slot->font == "small") y = 34;
-            else y = 38;
-        } else if (slot->pos == 0) {
-            if (slot->font == "large") y = 26;
-            else if (slot->font == "small") y = 12;
-            else y = 18;
-        } else {
-            if (slot->font == "large") y = 54;
-            else if (slot->font == "small") y = 44;
-            else y = 50;
-        }
+        const String font = effectiveFont(slot->font);
+        int y = lineBaseline(font, singleLine, slot->pos);
         if (y > 62) y = 62;
-        drawLineText(y, *slot);
+        drawLineText(y, *slot, font, scrollWidth);
     }
-    drawModeBadge();
+    if (!singleLine) drawModeBadge();
     u8g2.sendBuffer();
 }
 
-void Display::render(const std::vector<DisplaySlot> &slots, uint8_t brightness) {
+void Display::render(const std::vector<DisplaySlot> &slots, uint8_t brightness, uint8_t lineCount) {
+    const uint8_t nextLineCount = min<uint8_t>(lineCount, 2);
+    const bool layoutChanged =
+        nextLineCount != configuredLineCount_ || slots.size() != lastSlots_.size();
+    if (layoutChanged && ready_) {
+        clearScreen();
+        scrollOffset_ = 0;
+        scrollActive_ = false;
+    }
+
+    configuredLineCount_ = nextLineCount;
+
     const String nextScrollSig = scrollSignature(slots);
     const String prevScrollSig = scrollSignature(lastSlots_);
     if (nextScrollSig != prevScrollSig) {

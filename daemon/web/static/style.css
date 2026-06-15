@@ -112,6 +112,9 @@ input[type="number"] {
 .oled-line.large { font-size: 1.65rem; font-weight: 700; }
 .oled-line.medium { font-size: 1rem; font-weight: 600; }
 .oled-line.small { font-size: 0.75rem; opacity: 0.9; }
+.oled-line.xlarge { font-size: 2.1rem; font-weight: 700; line-height: 1.05; }
+.oled.single-line { display: flex; flex-direction: column; justify-content: center; min-height: 4.5rem; }
+.oled.single-line .oled-line { margin: 0; }
 
 .oled-empty {
   font-size: 0.85rem;

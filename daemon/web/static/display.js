@@ -12,6 +12,12 @@ function fontClass(name) {
   return name || 'medium';
 }
 
+function effectiveFontClass(font, count) {
+  if (count !== 1) return fontClass(font);
+  const map = { small: 'medium', medium: 'large', large: 'xlarge' };
+  return fontClass(map[font] || font);
+}
+
 function renderForm(layout) {
   const form = document.getElementById('layoutForm');
   const count = lineCount();
@@ -95,11 +101,12 @@ function applyPreview(data) {
         return;
       }
       el.textContent = line.text || '';
-      el.className = `oled-line ${fontClass(line.font)}`;
+      el.className = `oled-line ${effectiveFontClass(line.font, count)}`;
     });
   }
 
   const oled = document.getElementById('oledPreview');
+  oled.classList.toggle('single-line', count === 1);
   const opacity = (data.brightness || 255) / 255;
   oled.style.opacity = String(0.35 + opacity * 0.65);
 }
