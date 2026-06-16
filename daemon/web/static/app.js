@@ -140,21 +140,21 @@ function renderSleepChart(data) {
       labels,
       datasets: [
         {
-          label: 'Глубокий',
+          label: 'Calm (est.)',
           data: deepHours,
           backgroundColor: SLEEP_DEEP_COLOR,
           stack: 'sleep',
           yAxisID: 'y',
         },
         {
-          label: 'Лёгкий',
+          label: 'Restless (est.)',
           data: lightHours,
           backgroundColor: SLEEP_LIGHT_COLOR,
           stack: 'sleep',
           yAxisID: 'y',
         },
         {
-          label: 'Бодрствование',
+          label: 'Awake',
           data: awakeHours,
           backgroundColor: SLEEP_AWAKE_COLOR,
           stack: 'sleep',
@@ -198,10 +198,11 @@ function renderSleepChart(data) {
               const n = data.nights[i];
               const p = n.phases || {};
               return [
-                `Движений: ${n.movements}`,
-                `Глубокий: ${p.deep_pct ?? 0}%`,
-                `Лёгкий: ${p.light_pct ?? 0}%`,
-                `Бодрствование: ${p.awake_pct ?? 0}%`,
+                `Movements: ${n.movements}`,
+                `Calm: ${p.deep_pct ?? 0}%`,
+                `Restless: ${p.light_pct ?? 0}%`,
+                `Awake: ${p.awake_pct ?? 0}%`,
+                'Estimated from radar motion energy',
               ];
             },
           },

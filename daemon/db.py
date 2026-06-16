@@ -271,6 +271,27 @@ async def append_sleep_radar_sample(night_date: str, sample: dict) -> None:
 PHASE_BUCKET_SEC = 300
 
 
+def _sleep_energy_baseline(radar_samples: list[dict], sleep_start: float) -> float:
+    energies: list[int] = []
+    for sample in radar_samples:
+        ts = float(sample.get("ts", 0))
+        if sleep_start <= ts < sleep_start + 1800:
+            energies.append(int(sample.get("s_energy", 0)))
+    if not energies:
+        return 10.0
+    energies.sort()
+    return float(energies[len(energies) // 2])
+
+
+def _phase_from_energy(avg_e: float, baseline: float) -> str:
+    delta = avg_e - baseline
+    if delta <= 2:
+        return "deep"
+    if delta <= 8:
+        return "light"
+    return "light"
+
+
 def compute_sleep_phases(
     sleep_start: float | None,
     sleep_end: float | None,
@@ -278,7 +299,17 @@ def compute_sleep_phases(
     radar_samples: list[dict],
 ) -> dict:
     if not sleep_start or not sleep_end or sleep_end <= sleep_start:
-        return {"segments": [], "deep_pct": 0, "light_pct": 0, "awake_pct": 0}
+        return {
+            "segments": [],
+            "deep_pct": 0,
+            "light_pct": 0,
+            "awake_pct": 0,
+            "deep_hours": 0,
+            "light_hours": 0,
+            "awake_hours": 0,
+        }
+
+    baseline = _sleep_energy_baseline(radar_samples, sleep_start)
 
     bucket_starts: list[float] = []
     t = sleep_start
@@ -314,7 +345,7 @@ def compute_sleep_phases(
             energies = energy_by_bucket.get(bucket_start, [])
             if energies:
                 avg_e = sum(energies) / len(energies)
-                phase = "deep" if avg_e >= 15 else "light" if avg_e >= 6 else "deep"
+                phase = _phase_from_energy(avg_e, baseline)
             else:
                 phase = "light"
         counts[phase] += duration

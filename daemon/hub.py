@@ -209,6 +209,7 @@ class HubDaemon:
             interval = int(
                 await get_setting("standup_min", str(STANDUP_INTERVAL_MIN)) or STANDUP_INTERVAL_MIN
             )
+            self.work.maybe_reset_standup_after_absence()
             reminder = await self.work.check_standup(interval)
             if reminder:
                 logger.info("Standup reminder triggered")

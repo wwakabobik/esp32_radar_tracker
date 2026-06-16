@@ -116,7 +116,7 @@ Repurposing the ESP32 + HLK-LD2410C from a corporate surveillance device into a 
 /today         — hours at desk today, number of breaks
 /week          — daily statistics (text or chart)
 /sleep         — last night: fell asleep / woke up / quality
-/standup [N]   — reminders every N minutes (default: 45)
+/standup [N]   — reminders every N minutes (default: 120)
 /mode <mode>   — switch mode remotely: work / sleep / media
 /update        — push new firmware via OTA
 /settings      — current configuration
