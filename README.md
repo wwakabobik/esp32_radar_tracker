@@ -155,7 +155,10 @@ Media backend (Spotify vs system keys): **Settings**.
 Bot commands:
 
 ```
-/status  /today  /week  /sleep
+/status  
+/today  
+/week  
+/sleep
 /sleep week
 /standup 120
 /mode work|sleep|media
