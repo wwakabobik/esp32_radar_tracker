@@ -5,16 +5,33 @@ from datetime import datetime, timezone
 from db import (
     append_sleep_movement,
     append_sleep_radar_sample,
+    compute_sleep_phases,
     get_setting,
     get_sleep_night,
+    get_sleep_week,
     set_setting,
     upsert_sleep_night,
+    _parse_json_list,
 )
 
 
 def _night_date(ts: float | None = None) -> str:
     when = datetime.fromtimestamp(ts or datetime.now().timestamp())
     return when.strftime("%Y-%m-%d")
+
+
+def _fmt_ts(ts: float | None) -> str:
+    if not ts:
+        return "—"
+    return datetime.fromtimestamp(ts).strftime("%H:%M")
+
+
+def _night_phases(night: dict) -> dict:
+    start = night.get("sleep_start")
+    end = night.get("sleep_end")
+    movement_times = [float(t) for t in _parse_json_list(night.get("movement_times"))]
+    radar_samples = _parse_json_list(night.get("radar_samples"))
+    return compute_sleep_phases(start, end, movement_times, radar_samples)
 
 
 class SleepAnalyzer:
@@ -99,13 +116,67 @@ class SleepAnalyzer:
         sleep_start = await get_setting("last_sleep_start")
         sleep_end = await get_setting("last_sleep_end")
         night = await get_sleep_night()
+        phases = _night_phases(night) if night else {}
         return {
             "asleep": self.asleep,
             "sleep_start": float(sleep_start) if sleep_start else None,
             "sleep_end": float(sleep_end) if sleep_end else None,
-            "movements": self.movements,
-            "night": night,
+            "movements": int(night.get("movements", self.movements)) if night else self.movements,
+            "night_date": night.get("night_date") if night else _night_date(),
+            "phases": {
+                "calm_pct": phases.get("deep_pct", 0),
+                "restless_pct": phases.get("light_pct", 0),
+                "awake_pct": phases.get("awake_pct", 0),
+            },
         }
+
+    async def format_sleep_summary_text(self) -> str:
+        night = await get_sleep_night()
+        if not night or not night.get("sleep_start"):
+            status = "asleep now" if self.asleep else "no recorded sleep tonight"
+            return f"Sleep: {status}."
+
+        start = float(night["sleep_start"])
+        end = float(night["sleep_end"]) if night.get("sleep_end") else None
+        movements = int(night.get("movements", 0) or self.movements)
+        phases = _night_phases(night)
+
+        lines = [
+            f"Sleep ({night.get('night_date', _night_date())})",
+            f"Asleep now: {'yes' if self.asleep else 'no'}",
+            f"Start: {_fmt_ts(start)}",
+            f"End: {_fmt_ts(end) if end else '— (in progress)'}",
+        ]
+        if end and end > start:
+            lines.append(f"Duration: {(end - start) / 3600:.1f}h")
+        lines.extend(
+            [
+                f"Movements: {movements}",
+                (
+                    f"Calm: {phases.get('deep_pct', 0)}% | "
+                    f"Restless: {phases.get('light_pct', 0)}% | "
+                    f"Awake: {phases.get('awake_pct', 0)}%"
+                ),
+                "(Radar estimate — not clinical sleep stages)",
+            ]
+        )
+        return "\n".join(lines)
+
+    async def format_sleep_week_text(self) -> str:
+        nights = await get_sleep_week()
+        lines = ["Last 7 nights:"]
+        for night in nights:
+            hours = night.get("hours", 0) or 0
+            if hours <= 0:
+                lines.append(f"{night['date']}: —")
+                continue
+            phases = night.get("phases") or {}
+            lines.append(
+                f"{night['date']}: {hours:.1f}h, mov {night.get('movements', 0)}, "
+                f"calm {phases.get('deep_pct', 0)}%, restless {phases.get('light_pct', 0)}%"
+            )
+        lines.append("(Calm/restless from radar motion energy)")
+        return "\n".join(lines)
 
     async def _maybe_morning_summary(self) -> None:
         if (await get_setting("morning_summary_enabled", "1")) != "1":

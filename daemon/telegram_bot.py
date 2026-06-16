@@ -18,7 +18,13 @@ from config import (
     TOPIC_MODE,
     TOPIC_OTA,
 )
-from db import get_display_layout, get_today_work_seconds, get_week_work_seconds, set_setting
+from db import (
+    get_display_layout,
+    get_setting,
+    get_today_work_seconds,
+    get_week_work_seconds,
+    set_setting,
+)
 from hub import HubDaemon
 from netutil import hub_lan_ip
 
@@ -36,6 +42,20 @@ async def create_bot_task(daemon: HubDaemon):
 
     def allowed(message: Message) -> bool:
         return not TELEGRAM_CHAT_ID or str(message.chat.id) == str(TELEGRAM_CHAT_ID)
+
+    @dp.message(Command("chatid"))
+    async def cmd_chatid(message: Message) -> None:
+        chat = message.chat
+        user = message.from_user
+        username = f"@{user.username}" if user and user.username else "(no username)"
+        await message.answer(
+            f"Your chat id: {chat.id}\n"
+            f"Type: {chat.type}\n"
+            f"Username: {username}\n\n"
+            "Add to daemon/.env:\n"
+            f"HUB_TELEGRAM_CHAT_ID={chat.id}\n\n"
+            "Then restart the hub. After that only this chat can use bot commands."
+        )
 
     @dp.message(Command("status"))
     async def cmd_status(message: Message) -> None:
@@ -69,8 +89,12 @@ async def create_bot_task(daemon: HubDaemon):
     async def cmd_sleep(message: Message) -> None:
         if not allowed(message):
             return
-        summary = await daemon.sleep.last_night_summary()
-        await message.answer(json.dumps(summary, indent=2))
+        parts = (message.text or "").split()
+        if len(parts) > 1 and parts[1].lower() == "week":
+            text = await daemon.sleep.format_sleep_week_text()
+        else:
+            text = await daemon.sleep.format_sleep_summary_text()
+        await message.answer(text)
 
     @dp.message(Command("standup"))
     async def cmd_standup(message: Message) -> None:
@@ -113,7 +137,8 @@ async def create_bot_task(daemon: HubDaemon):
         if not allowed(message):
             return
         layout = await get_display_layout()
-        await message.answer(json.dumps({"layout": layout, "standup_min": STANDUP_INTERVAL_MIN}, indent=2))
+        standup_min = int(await get_setting("standup_min", str(STANDUP_INTERVAL_MIN)) or STANDUP_INTERVAL_MIN)
+        await message.answer(json.dumps({"layout": layout, "standup_min": standup_min}, indent=2))
 
     async def polling() -> None:
         await dp.start_polling(bot)

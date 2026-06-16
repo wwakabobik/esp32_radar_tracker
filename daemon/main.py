@@ -4,7 +4,6 @@ import asyncio
 import logging
 
 import uvicorn
-from dotenv import load_dotenv
 
 from db import init_db
 from device_config import publish_device_config
@@ -25,7 +24,6 @@ async def run_web(app) -> None:
 
 
 async def main() -> None:
-    load_dotenv()
     await init_db()
     await publish_device_config()
 
