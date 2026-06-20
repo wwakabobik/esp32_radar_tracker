@@ -24,6 +24,7 @@ private:
 
     uint16_t gestureDist(const RadarReading &reading) const;
     bool inNearZone(uint16_t d) const;
+    bool mlZoneOk(uint16_t d) const;
     void publishDebug(const RadarReading &reading, DebugCallback debugCb, const TinyMlResult *ai);
     void fallbackZoneHold(const RadarReading &reading, GestureCallback cb);
     void handleMlGesture(const TinyMlResult &ai, const RadarReading &reading, GestureCallback cb);

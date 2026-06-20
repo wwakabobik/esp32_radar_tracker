@@ -14,7 +14,7 @@
       <a href="/" class="active">Dashboard</a>
       <a href="/static/display.html">Display</a>
       <a href="/static/settings.html">Settings</a>
-      <a href="/static/gestures.html">Gestures</a>
+      <a href="/static/gestures.html">Media gestures</a>
       <a href="/static/sensor-log.html">Sensor log</a>
     </nav>
   </header>
@@ -36,6 +36,15 @@
         <p id="aiState">AI: —</p>
         <p id="fatigueCount">Fatigue hints: —</p>
       </div>
+      <div class="card">
+        <h2>Media gestures</h2>
+        <p class="hint">Zone hold → next track, ML next/prev/volume, near-zone tuning.</p>
+        <p id="gestureSummary">Loading…</p>
+        <a class="nav-card-link" href="/static/gestures.html">Open Media gestures →</a>
+        <p class="hint" style="margin-top:0.75rem">
+          Debug stream: <a href="/static/sensor-log.html">Sensor log</a>
+        </p>
+      </div>
     </section>
     <section class="card chart-card">
       <div class="chart-toolbar">
@@ -52,6 +61,7 @@
     </section>
   </main>
 
+  <script src="/static/gesture-summary.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

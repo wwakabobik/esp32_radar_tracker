@@ -117,15 +117,15 @@ int Display::lineBaseline(const String &font, bool singleLine, uint8_t pos) cons
         return 42;
     }
     if (pos == 0) {
-        if (font == "xlarge") return 30;
-        if (font == "large") return 26;
+        if (font == "xlarge") return 34;
+        if (font == "large") return 28;
         if (font == "small") return 12;
         return 18;
     }
     if (font == "xlarge") return 58;
-    if (font == "large") return 54;
-    if (font == "small") return 44;
-    return 50;
+    if (font == "large") return 56;
+    if (font == "small") return 54;
+    return 58;
 }
 
 int Display::scrollMaxWidth() const {
@@ -199,10 +199,10 @@ void Display::loop() {
 }
 
 int Display::centeredBaseline(const String &font) const {
-    if (font == "xlarge") return 44;
-    if (font == "large") return 40;
-    if (font == "small") return 36;
-    return 38;
+    if (font == "xlarge") return 42;
+    if (font == "large") return 38;
+    if (font == "small") return 34;
+    return 36;
 }
 
 void Display::drawLineText(int y, const DisplaySlot &slot, const String &font, int scrollWidth) {
@@ -266,8 +266,13 @@ void Display::drawSlots(const std::vector<DisplaySlot> &slots) {
         const String font = effectiveFont(slot->font);
         const bool loneCentered = slot->center && visible.size() == 1;
         int y = loneCentered ? centeredBaseline(font) : lineBaseline(font, singleLine, slot->pos);
-        if (y > 62) y = 62;
-        drawLineText(y, *slot, font, scrollWidth);
+        applyFont(font);
+        const int ascent = static_cast<int>(u8g2.getAscent());
+        const int descent = static_cast<int>(u8g2.getDescent());
+        y = max(y, ascent);
+        y = min(y, 63 - max(0, descent));
+        const int lineScrollWidth = slot->pos >= 1 ? 128 : scrollWidth;
+        drawLineText(y, *slot, font, lineScrollWidth);
     }
     if (!singleLine) drawModeBadge();
     u8g2.sendBuffer();

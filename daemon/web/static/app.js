@@ -306,4 +306,5 @@ document.getElementById('ota-btn')?.addEventListener('click', async () => {
 
 fetchToday();
 fetchChart();
+loadGestureSummary('gestureSummary');
 setInterval(fetchToday, 5000);

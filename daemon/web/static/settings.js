@@ -55,3 +55,4 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
 });
 
 loadSettings();
+loadGestureSummary('gestureSummary');

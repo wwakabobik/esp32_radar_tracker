@@ -16,6 +16,14 @@ function applySettings(data) {
   document.getElementById('zoneMax').value = zoneMax;
   document.getElementById('holdMs').value = data.gesture_hold_ms;
   document.getElementById('debounceMs').value = data.gesture_debounce_ms;
+  document.getElementById('zoneHold').checked = data.gesture_zone_hold;
+  document.getElementById('mlNext').checked = data.gesture_ml_next;
+  document.getElementById('mlPrev').checked = data.gesture_ml_prev;
+  document.getElementById('mlVol').checked = data.gesture_ml_vol;
+  document.getElementById('mlInZone').checked = data.gesture_ml_in_zone;
+  document.getElementById('volMin').value = data.gesture_ml_vol_min_cm;
+  document.getElementById('volMax').value = data.gesture_ml_vol_max_cm;
+  document.getElementById('volMs').value = data.gesture_ml_vol_ms;
   document.getElementById('gestureDebug').checked = data.gesture_debug;
   updateBarLabels();
   updateZoneOverlay();
@@ -61,6 +69,24 @@ function updateLive(data) {
   }
 }
 
+function collectBody() {
+  return {
+    gesture_zone_min_cm: Number(document.getElementById('zoneMin').value),
+    gesture_zone_max_cm: Number(document.getElementById('zoneMax').value),
+    gesture_hold_ms: Number(document.getElementById('holdMs').value),
+    gesture_debounce_ms: Number(document.getElementById('debounceMs').value),
+    gesture_zone_hold: document.getElementById('zoneHold').checked,
+    gesture_ml_next: document.getElementById('mlNext').checked,
+    gesture_ml_prev: document.getElementById('mlPrev').checked,
+    gesture_ml_vol: document.getElementById('mlVol').checked,
+    gesture_ml_in_zone: document.getElementById('mlInZone').checked,
+    gesture_ml_vol_min_cm: Number(document.getElementById('volMin').value),
+    gesture_ml_vol_max_cm: Number(document.getElementById('volMax').value),
+    gesture_ml_vol_ms: Number(document.getElementById('volMs').value),
+    gesture_debug: document.getElementById('gestureDebug').checked,
+  };
+}
+
 async function loadSettings() {
   const res = await fetch('/api/gestures/settings');
   applySettings(await res.json());
@@ -75,13 +101,7 @@ async function pollLive() {
 }
 
 document.getElementById('saveGestures').addEventListener('click', async () => {
-  const body = {
-    gesture_zone_min_cm: Number(document.getElementById('zoneMin').value),
-    gesture_zone_max_cm: Number(document.getElementById('zoneMax').value),
-    gesture_hold_ms: Number(document.getElementById('holdMs').value),
-    gesture_debounce_ms: Number(document.getElementById('debounceMs').value),
-    gesture_debug: document.getElementById('gestureDebug').checked,
-  };
+  const body = collectBody();
   const res = await fetch('/api/gestures/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

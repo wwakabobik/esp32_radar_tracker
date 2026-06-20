@@ -281,3 +281,31 @@ nav a.active, nav a:hover { opacity: 1; color: var(--accent); }
 }
 .radar-marker.in-zone { background: var(--accent); }
 .radar-marker.in-vol { box-shadow: 0 0 6px rgba(91, 140, 255, 0.8); }
+
+.nav-card-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.55rem 1rem;
+  background: var(--accent);
+  color: #fff !important;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.nav-card-link:hover { filter: brightness(1.08); }
+
+.page-lead {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+#gestureSummary {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0.5rem 0;
+}

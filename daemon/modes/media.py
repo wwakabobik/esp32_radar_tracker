@@ -72,16 +72,24 @@ class MediaController:
         self.last_gesture = f"{gesture}:{value}"
         self.last_gesture_ts = float(ts) if ts is not None else time.time()
         backend = await get_setting("media_backend", "spotify")
+        debounce_ms = int(await get_setting("gesture_debounce_ms", "2500") or 2500)
+        debounce_sec = max(0.3, debounce_ms / 1000.0)
 
         if gesture == "vol":
-            return
-        if gesture == "next":
+            if (await get_setting("gesture_ml_vol", "0")) != "1":
+                return
+            await self._set_volume(backend, int(value))
+        elif gesture == "next":
             now = time.monotonic()
-            if now - self._last_next_mono < 2.5:
+            if now - self._last_next_mono < debounce_sec:
                 return
             self._last_next_mono = now
             await self._next_track(backend)
         elif gesture == "prev":
+            now = time.monotonic()
+            if now - self._last_next_mono < debounce_sec:
+                return
+            self._last_next_mono = now
             await self._prev_track(backend)
         await self.refresh_track(force=True)
 
