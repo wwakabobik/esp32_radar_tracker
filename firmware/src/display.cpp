@@ -117,10 +117,12 @@ int Display::lineBaseline(const String &font, bool singleLine, uint8_t pos) cons
         return 42;
     }
     if (pos == 0) {
+        if (font == "xlarge") return 30;
         if (font == "large") return 26;
         if (font == "small") return 12;
         return 18;
     }
+    if (font == "xlarge") return 58;
     if (font == "large") return 54;
     if (font == "small") return 44;
     return 50;

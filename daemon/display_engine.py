@@ -5,6 +5,8 @@ from datetime import datetime
 from config import DISPLAY_FONTS, STANDUP_INTERVAL_MIN
 from db import get_display_layout, get_setting
 
+SESSION_FLASH_SECONDS = 10
+
 
 def _fmt_duration(seconds: int) -> str:
     hours, rem = divmod(max(0, seconds), 3600)
@@ -14,7 +16,6 @@ def _fmt_duration(seconds: int) -> str:
     if minutes:
         return f"{minutes}m"
     return f"{secs}s"
-
 
 
 class DisplayEngine:
@@ -36,9 +37,46 @@ class DisplayEngine:
         self.sleep = sleep
         self.media = media
         self._publisher = None
+        self._session_flash_until: float = 0.0
+        self._session_flash_minute: int | None = None
 
     def set_publisher(self, publisher) -> None:
         self._publisher = publisher
+
+    def _tick_session_flash(self, now: datetime) -> None:
+        minute = now.minute
+        if self._session_flash_minute != minute:
+            self._session_flash_minute = minute
+            self._session_flash_until = now.timestamp() + SESSION_FLASH_SECONDS
+
+    def _in_session_flash(self, now: datetime) -> bool:
+        return now.timestamp() < self._session_flash_until
+
+    async def _build_work_widgets(self) -> list[dict]:
+        now = datetime.now()
+
+        if self.work.reminder_active:
+            standup_min = int(
+                await get_setting("standup_min", str(STANDUP_INTERVAL_MIN)) or STANDUP_INTERVAL_MIN
+            )
+            sec = await self.work.standup_countdown_seconds(standup_min)
+            return [
+                {"pos": 0, "text": "! Stand up", "font": "large"},
+                {"pos": 1, "text": f"{sec // 60:02d}:{sec % 60:02d}", "font": "large"},
+            ]
+
+        self._tick_session_flash(now)
+        if self._in_session_flash(now):
+            sess = await self.work.session_seconds()
+            return [
+                {"pos": 0, "text": f"> {_fmt_duration(sess)}", "font": "large"},
+                {"pos": 1, "text": "this session", "font": "medium"},
+            ]
+
+        return [
+            {"pos": 0, "text": now.strftime("%H"), "font": "xlarge"},
+            {"pos": 1, "text": now.strftime("%M"), "font": "xlarge"},
+        ]
 
     async def _line_count(self) -> int:
         raw = await get_setting("display_line_count", "2")
@@ -54,12 +92,15 @@ class DisplayEngine:
         return widget
 
     async def build_payload(self, mode: str) -> dict:
-        layout = await get_display_layout()
         line_count = await self._line_count()
         if mode == "media":
             await self.media.refresh_track()
-        widgets = []
-        if line_count > 0:
+
+        if mode == "work" and line_count > 0:
+            widgets = await self._build_work_widgets()
+        elif line_count > 0:
+            layout = await get_display_layout()
+            widgets = []
             for item in layout:
                 if item["slot"] >= line_count:
                     continue
@@ -75,6 +116,8 @@ class DisplayEngine:
                 if rendered.get("scroll"):
                     entry["scroll"] = True
                 widgets.append(entry)
+        else:
+            widgets = []
         brightness = int(await get_setting("display_brightness", "255") or 255)
         sleep_display = await get_setting("sleep_display_mode", "off")
         return {

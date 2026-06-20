@@ -45,6 +45,9 @@ bool Buttons::readPressed(uint8_t pin) const {
 void Buttons::loop() {
     const unsigned long now = millis();
     for (uint8_t i = 0; i < 2; ++i) {
+#if defined(BTN1_IGNORE)
+        if (i == 0) continue;
+#endif
         const bool down = readPressed(btnPins_[i]);
         if (down != stableDown_[i]) {
             if (now - lastChangeMs_[i] >= 30) {

@@ -42,10 +42,10 @@ TOPIC_DEBUG_GESTURE = "hub/debug/gesture"
 
 DEFAULT_DISPLAY_LAYOUT = [
     {"slot": 0, "widget": "clock", "font": "large"},
-    {"slot": 1, "widget": "session", "font": "medium"},
+    {"slot": 1, "widget": "today", "font": "medium"},
 ]
 
-DISPLAY_FONTS = ("small", "medium", "large")
+DISPLAY_FONTS = ("small", "medium", "large", "xlarge")
 
 TOPIC_CONFIG = "hub/config"
 

@@ -1,5 +1,5 @@
 const SLOT_LABELS = ['Line 1 (top)', 'Line 2 (bottom)'];
-const FONT_LABELS = { small: 'Small', medium: 'Medium', large: 'Large' };
+const FONT_LABELS = { small: 'Small', medium: 'Medium', large: 'Large', xlarge: 'XLarge' };
 let widgets = [];
 let fonts = ['small', 'medium', 'large'];
 let previewTimer = null;
