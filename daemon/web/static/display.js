@@ -1,5 +1,5 @@
-const SLOT_LABELS = ['Линия 1 (верх)', 'Линия 2 (низ)'];
-const FONT_LABELS = { small: 'Мелкий', medium: 'Средний', large: 'Крупный' };
+const SLOT_LABELS = ['Line 1 (top)', 'Line 2 (bottom)'];
+const FONT_LABELS = { small: 'Small', medium: 'Medium', large: 'Large' };
 let widgets = [];
 let fonts = ['small', 'medium', 'large'];
 let previewTimer = null;
@@ -24,7 +24,7 @@ function renderForm(layout) {
   form.innerHTML = '';
 
   if (count === 0) {
-    form.innerHTML = '<p class="hint">Текст не показывается — только яркость и sleep-режим.</p>';
+    form.innerHTML = '<p class="hint">No text shown — brightness and sleep mode only.</p>';
     schedulePreview();
     return;
   }
@@ -39,7 +39,7 @@ function renderForm(layout) {
     row.innerHTML = `
       <label>${SLOT_LABELS[slot]}</label>
       <select id="widget-${slot}" data-slot="${slot}"></select>
-      <select id="font-${slot}" data-slot="${slot}" title="Размер шрифта"></select>
+      <select id="font-${slot}" data-slot="${slot}" title="Font size"></select>
     `;
     form.appendChild(row);
     const wsel = row.querySelector(`#widget-${slot}`);

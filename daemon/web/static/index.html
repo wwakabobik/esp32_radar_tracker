@@ -33,15 +33,18 @@
         <h2>Today</h2>
         <p id="today">0h 00m</p>
         <p id="session">Session: 0m</p>
+        <p id="aiState">AI: —</p>
+        <p id="fatigueCount">Fatigue hints: —</p>
       </div>
     </section>
     <section class="card chart-card">
       <div class="chart-toolbar">
-        <h2 id="chart-title">Графики</h2>
-        <select id="chart-type" aria-label="Тип графика">
-          <option value="week_total">Накопительно — 7 дней</option>
-          <option value="week_timeline">Интервалы присутствия</option>
-          <option value="sleep">Сон</option>
+        <h2 id="chart-title">Charts</h2>
+        <select id="chart-type" aria-label="Chart type">
+          <option value="week_total">Cumulative — 7 days</option>
+          <option value="week_timeline">Presence intervals</option>
+          <option value="sleep">Sleep</option>
+          <option value="ai_timeline">AI states (24h)</option>
         </select>
       </div>
       <p id="chart-hint" class="chart-hint"></p>

@@ -26,6 +26,11 @@ async def build_device_config() -> dict:
             s.get("gesture_debounce_ms") or s.get("gesture_swipe_debounce_ms") or 1200
         ),
         "gesture_debug": s.get("gesture_debug", "0") == "1",
+        "ai_enabled": s.get("ai_enabled", "1") == "1",
+        "ai_record_mode": s.get("ai_record_mode", "0") == "1",
+        "ai_confidence_min": int(s.get("ai_confidence_min", 60)),
+        "ai_fatigue_minutes": int(s.get("ai_fatigue_minutes", 45)),
+        "ai_fallback_heuristics": s.get("ai_fallback_heuristics", "1") == "1",
     }
 
 

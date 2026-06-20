@@ -11,11 +11,13 @@ from config import (
     MQTT_HOST,
     MQTT_PORT,
     STANDUP_INTERVAL_MIN,
+    TOPIC_AI_STATE,
     TOPIC_BUTTON,
     TOPIC_DISPLAY,
     TOPIC_GESTURE,
     TOPIC_MODE,
     TOPIC_RADAR,
+    TOPIC_RADAR_RAW,
     TOPIC_STATUS,
     TOPIC_SYNC_EVENTS,
     TOPIC_DEBUG_GESTURE,
@@ -25,6 +27,7 @@ from db import (
     end_session,
     get_active_session,
     get_setting,
+    insert_ai_state,
     insert_radar_sample,
     set_last_event_id,
     start_session,
@@ -46,6 +49,7 @@ class HubDaemon:
         self.online = False
         self.last_status: dict = {}
         self.last_radar: dict = {}
+        self.last_ai_state: dict = {}
         self.last_gesture_debug: dict = {}
         self.sensor_log = SensorLog()
         self.work = WorkTracker()
@@ -81,7 +85,7 @@ class HubDaemon:
             self._log_sensor("radar", data)
             debug_on = (await get_setting("gesture_debug", "0")) == "1"
             if debug_on and self.mode == "media":
-                logger.debug("radar media: dist=%s centroid=%s moving=%s", data.get("dist"), data.get("centroid"), data.get("moving"))
+                logger.debug("radar media: dist=%s centroid=%s moving=%s", data.get("dist"), data.get("m_gate_centroid"), data.get("moving"))
             await insert_radar_sample(data)
             if self.mode in WORK_TRACKING_MODES:
                 await self.work.on_radar(data)
@@ -89,6 +93,20 @@ class HubDaemon:
                 await self.sleep.on_radar(data)
             if self.mode == "media":
                 await self.media.on_radar(data)
+            return
+
+        if topic == TOPIC_RADAR_RAW:
+            data = json.loads(text)
+            self._log_sensor("radar_raw", data)
+            return
+
+        if topic == TOPIC_AI_STATE:
+            data = json.loads(text)
+            self.last_ai_state = data
+            self._log_sensor("ai_state", data)
+            await insert_ai_state(data)
+            if self.mode in WORK_TRACKING_MODES:
+                await self.work.on_ai_state(data)
             return
 
         if topic == TOPIC_BUTTON:
@@ -234,6 +252,8 @@ async def mqtt_loop(daemon: HubDaemon) -> None:
                 daemon.set_mqtt_client(client)
                 for topic in (
                     TOPIC_RADAR,
+                    TOPIC_RADAR_RAW,
+                    TOPIC_AI_STATE,
                     TOPIC_BUTTON,
                     TOPIC_GESTURE,
                     TOPIC_DEBUG_GESTURE,

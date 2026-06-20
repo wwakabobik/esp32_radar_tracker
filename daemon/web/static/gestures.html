@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Жесты — Presence Hub</title>
+  <title>Gestures — Presence Hub</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
@@ -20,27 +20,27 @@
 
   <main>
     <section class="card preview">
-      <h2>Media — ближняя зона → next</h2>
+      <h2>Media — near zone → next</h2>
       <p class="hint">
-        Рука в зоне <strong>Min–Max см</strong>, держать <strong>Hold</strong> → следующий трек.
-        Убрать руку из зоны перед повтором. Только режим <strong>media</strong>.
+        Hand in zone <strong>Min–Max cm</strong>, hold for <strong>Hold</strong> → next track.
+        Remove hand from zone before repeating. <strong>media</strong> mode only.
       </p>
       <div class="radar-live">
         <div class="radar-stats">
-          <p><span class="stat-label">Режим</span> <span id="liveMode">—</span></p>
-          <p><span class="stat-label">Онлайн</span> <span id="liveOnline">—</span></p>
-          <p><span class="stat-label">В зоне</span> <span id="liveInZone">—</span></p>
-          <p><span class="stat-label">Hold осталось</span> <span id="liveHold">—</span></p>
-          <p><span class="stat-label">Готов</span> <span id="liveArmed">—</span></p>
-          <p><span class="stat-label">Дистанция</span> <span id="liveDist">—</span></p>
+          <p><span class="stat-label">Mode</span> <span id="liveMode">—</span></p>
+          <p><span class="stat-label">Online</span> <span id="liveOnline">—</span></p>
+          <p><span class="stat-label">In zone</span> <span id="liveInZone">—</span></p>
+          <p><span class="stat-label">Hold left</span> <span id="liveHold">—</span></p>
+          <p><span class="stat-label">Armed</span> <span id="liveArmed">—</span></p>
+          <p><span class="stat-label">Distance</span> <span id="liveDist">—</span></p>
           <p><span class="stat-label">Device ts</span> <span id="liveTs">—</span></p>
-          <p><span class="stat-label">Последний next</span> <span id="liveGesture">—</span></p>
+          <p><span class="stat-label">Last next</span> <span id="liveGesture">—</span></p>
           <p><span class="stat-label">Next ts</span> <span id="liveGestureTs">—</span></p>
         </div>
         <div class="radar-bar-wrap">
           <div class="radar-bar-labels">
             <span id="barZoneMin">12</span>
-            <span>ближняя зона</span>
+            <span>near zone</span>
             <span id="barZoneMax">28</span>
           </div>
           <div class="radar-bar" id="radarBar">
@@ -52,7 +52,7 @@
     </section>
 
     <section class="card">
-      <h2>Ближняя зона</h2>
+      <h2>Near zone</h2>
       <label class="slider-row">Min (cm) <input type="number" id="zoneMin" min="0" max="50" /></label>
       <label class="slider-row">Max (cm) <input type="number" id="zoneMax" min="3" max="50" /></label>
       <label class="slider-row">Hold (ms) <input type="number" id="holdMs" min="100" max="3000" /></label>

@@ -71,6 +71,28 @@
     </section>
 
     <section class="card">
+      <h2>Edge AI (TinyML)</h2>
+      <p class="hint">On-device inference on ESP32. Recording mode streams gate data for training.</p>
+      <label class="slider-row">
+        <input type="checkbox" id="aiEnabled" checked /> AI enabled
+      </label>
+      <label class="slider-row">
+        <input type="checkbox" id="aiRecordMode" /> Recording mode (hub/radar/raw)
+      </label>
+      <label class="slider-row">
+        Confidence min (0–100)
+        <input type="number" id="aiConfidenceMin" min="0" max="100" value="60" />
+      </label>
+      <label class="slider-row">
+        Fatigue threshold (minutes)
+        <input type="number" id="aiFatigueMinutes" min="5" max="240" value="45" />
+      </label>
+      <label class="slider-row">
+        <input type="checkbox" id="aiFallback" checked /> Fallback heuristics when confidence low
+      </label>
+    </section>
+
+    <section class="card">
       <h2>Media</h2>
       <label class="slider-row">
         Backend

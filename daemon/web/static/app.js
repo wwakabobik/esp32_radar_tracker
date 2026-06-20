@@ -1,7 +1,8 @@
 const CHART_HINTS = {
-  week_total: 'Суммарные часы за столом за каждый день (сессии work).',
-  week_timeline: 'Синие полоски — присутствие по радару, пустое — отсутствие или нет данных.',
-  sleep: 'Фазы сна (глубокий / лёгкий / бодрствование) и качество. Движения сохраняются с метками времени.',
+  week_total: 'Total desk hours per day (work sessions).',
+  week_timeline: 'Blue bars = radar presence; empty = absent or no data.',
+  sleep: 'Sleep phases (calm / restless / awake) and quality score. Movements stored with timestamps.',
+  ai_timeline: 'Confidence on-device AI state changes over the last 24 hours.',
 };
 
 const SLEEP_DEEP_COLOR = '#1e3a8a';
@@ -47,10 +48,10 @@ function renderWeekTotal(data) {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ label: 'Часы за столом', data: hours, backgroundColor: PRESENCE_COLOR }],
+      datasets: [{ label: 'Desk hours', data: hours, backgroundColor: PRESENCE_COLOR }],
     },
     options: {
-      scales: { y: { beginAtZero: true, title: { display: true, text: 'часы' } } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'hours' } } },
       plugins: { legend: { display: false } },
     },
   });
@@ -80,14 +81,14 @@ function renderWeekTimeline(data) {
       labels,
       datasets: [
         {
-          label: 'Отсутствие',
+          label: 'Absent',
           data: absentData,
           backgroundColor: ABSENT_COLOR,
           borderSkipped: false,
           barPercentage: 0.85,
         },
         {
-          label: 'Присутствие',
+          label: 'Present',
           data: presentData,
           backgroundColor: PRESENCE_COLOR,
           borderSkipped: false,
@@ -107,7 +108,7 @@ function renderWeekTimeline(data) {
             stepSize: 3,
             callback: (v) => `${v}:00`,
           },
-          title: { display: true, text: 'время суток' },
+          title: { display: true, text: 'time of day' },
         },
         y: { reverse: false },
       },
@@ -162,7 +163,7 @@ function renderSleepChart(data) {
         },
         {
           type: 'line',
-          label: 'Качество %',
+          label: 'Quality %',
           data: qualities,
           borderColor: SLEEP_QUALITY_COLOR,
           backgroundColor: SLEEP_QUALITY_COLOR,
@@ -178,14 +179,14 @@ function renderSleepChart(data) {
           beginAtZero: true,
           stacked: true,
           position: 'left',
-          title: { display: true, text: 'часы' },
+          title: { display: true, text: 'hours' },
         },
         y1: {
           beginAtZero: true,
           max: 100,
           position: 'right',
           grid: { drawOnChartArea: false },
-          title: { display: true, text: 'качество' },
+          title: { display: true, text: 'quality' },
         },
       },
       plugins: {
@@ -202,8 +203,45 @@ function renderSleepChart(data) {
                 `Calm: ${p.deep_pct ?? 0}%`,
                 `Restless: ${p.light_pct ?? 0}%`,
                 `Awake: ${p.awake_pct ?? 0}%`,
+                p.breath_rate_bpm != null ? `Breath rate: ${p.breath_rate_bpm} bpm` : 'Breath rate: n/a',
                 'Estimated from radar motion energy',
               ];
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderAiTimeline(data) {
+  const entries = data.entries || [];
+  const labels = entries.map((e) => {
+    const d = new Date(e.ts * 1000);
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  });
+  const conf = entries.map((e) => e.confidence ?? 0);
+  const ctx = document.getElementById('week-chart');
+  window.weekChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'AI confidence %',
+        data: conf,
+        borderColor: '#8b5cf6',
+        tension: 0.2,
+        pointRadius: 0,
+      }],
+    },
+    options: {
+      scales: { y: { min: 0, max: 100 } },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            afterLabel(ctx) {
+              const e = entries[ctx.dataIndex];
+              return e ? `${e.state} (${e.mode})` : '';
             },
           },
         },
@@ -230,6 +268,11 @@ async function fetchChart() {
   if (type === 'sleep') {
     const res = await fetch('/api/dashboard/sleep/week');
     renderSleepChart(await res.json());
+    return;
+  }
+  if (type === 'ai_timeline') {
+    const res = await fetch('/api/ai/timeline?hours=24');
+    renderAiTimeline(await res.json());
   }
 }
 
@@ -238,7 +281,9 @@ async function fetchToday() {
   const data = await res.json();
   document.getElementById('mode').textContent = `Mode: ${data.mode}`;
   document.getElementById('online').textContent = `Online: ${data.online ? 'yes' : 'no'}`;
-  document.getElementById('present').textContent = `Present: ${data.present ? 'yes' : 'no'}`;
+  document.getElementById('present').textContent = `Present: ${data.present ? 'yes' : 'no'}${data.fatigue ? ' (fatigue)' : ''}`;
+  document.getElementById('aiState').textContent = `AI: ${data.ai_state || '—'}${data.ai_confidence != null ? ` (${data.ai_confidence}%)` : ''}`;
+  document.getElementById('fatigueCount').textContent = `Fatigue hints today: ${data.fatigue_events_today ?? 0}`;
   const hours = Math.floor(data.today_seconds / 3600);
   const minutes = Math.floor((data.today_seconds % 3600) / 60);
   document.getElementById('today').textContent = `${hours}h ${String(minutes).padStart(2, '0')}m`;

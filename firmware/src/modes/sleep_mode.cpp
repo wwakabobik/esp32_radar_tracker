@@ -10,6 +10,8 @@ void SleepMode::onEnter(Radar &radar) {
     breathingStable_ = 0;
     asleep_ = false;
     movements_ = 0;
+    aiState_ = AiState::SleepAbsent;
+    lastAiState_ = AiState::SleepAbsent;
 }
 
 void SleepMode::onExit(Radar &radar) {
@@ -34,8 +36,48 @@ void SleepMode::manualWake() {
     gEventLog.append("sleep_end", "sleep");
 }
 
-void SleepMode::onRadar(const RadarReading &reading) {
+void SleepMode::onRadar(const RadarReading &reading, const TinyMlResult *ai) {
     const auto &cfg = gRadarConfig.current();
+
+    if (ai && ai->confidence > 0) {
+        aiState_ = ai->state;
+    } else {
+        aiState_ = AiState::SleepAbsent;
+    }
+
+    if (ai && ai->confidence > 0) {
+        if (ai->state == AiState::SleepAbsent) {
+            breathingStable_ = max(0, breathingStable_ - 1);
+            stableCount_ = 0;
+            breathing_ = false;
+            if (breathingStable_ == 0 && asleep_) {
+                movements_++;
+                gEventLog.append("sleep_movement", "sleep");
+            }
+            lastAiState_ = ai->state;
+            return;
+        }
+
+        if (ai->state == AiState::SleepBreathingStable) {
+            breathingStable_++;
+            if (++stableCount_ >= 5) breathing_ = true;
+        } else if (ai->state == AiState::SleepRestless) {
+            breathingStable_ = max(0, breathingStable_ - 1);
+            stableCount_ = 0;
+            breathing_ = false;
+            if (asleep_ && lastAiState_ == AiState::SleepBreathingStable) {
+                movements_++;
+                gEventLog.append("sleep_movement", "sleep");
+            }
+        }
+
+        if (breathingStable_ >= 5 && !asleep_) {
+            asleep_ = true;
+            gEventLog.append("sleep_start", "sleep");
+        }
+        lastAiState_ = ai->state;
+        return;
+    }
 
     if (!reading.present) {
         breathingStable_ = max(0, breathingStable_ - 1);

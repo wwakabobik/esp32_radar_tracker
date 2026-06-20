@@ -109,7 +109,7 @@ class SleepAnalyzer:
             self.breathing_stable = max(0, self.breathing_stable - 1)
 
         if self.breathing_stable >= 5 and not self.asleep:
-            # Auto sleep only after explicit "лёг" (Btn1) — not from stillness alone.
+            # Auto sleep only after explicit "went to bed" (Btn1) — not from stillness alone.
             return
 
     async def last_night_summary(self) -> dict:
@@ -157,9 +157,11 @@ class SleepAnalyzer:
                     f"Restless: {phases.get('light_pct', 0)}% | "
                     f"Awake: {phases.get('awake_pct', 0)}%"
                 ),
-                "(Radar estimate — not clinical sleep stages)",
             ]
         )
+        if phases.get("breath_rate_bpm") is not None:
+            lines.append(f"Breath rate (est.): {phases['breath_rate_bpm']} bpm")
+        lines.append("(Radar estimate — not clinical sleep stages)")
         return "\n".join(lines)
 
     async def format_sleep_week_text(self) -> str:

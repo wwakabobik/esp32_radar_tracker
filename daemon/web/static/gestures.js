@@ -6,7 +6,7 @@ let zoneMax = 28;
 function fmtTs(ts) {
   if (ts == null || ts === '') return '—';
   const d = new Date(Number(ts) * 1000);
-  return d.toLocaleString('ru-RU', { hour12: false, fractionalSecondDigits: 3 });
+  return d.toLocaleString('en-US', { hour12: false, fractionalSecondDigits: 3 });
 }
 
 function applySettings(data) {
@@ -38,15 +38,15 @@ function updateZoneOverlay() {
 
 function updateLive(data) {
   document.getElementById('liveMode').textContent = data.mode || '—';
-  document.getElementById('liveOnline').textContent = data.online ? 'да' : 'нет';
+  document.getElementById('liveOnline').textContent = data.online ? 'yes' : 'no';
   document.getElementById('liveInZone').textContent =
-    data.in_zone != null ? (data.in_zone ? 'да' : 'нет') : '—';
+    data.in_zone != null ? (data.in_zone ? 'yes' : 'no') : '—';
   document.getElementById('liveHold').textContent =
     data.hold_left_ms != null ? `${data.hold_left_ms} ms` : '—';
   document.getElementById('liveArmed').textContent =
-    data.zone_armed != null ? (data.zone_armed ? 'да (можно)' : 'нет — убери руку') : '—';
+    data.zone_armed != null ? (data.zone_armed ? 'yes (ready)' : 'no — remove hand') : '—';
   document.getElementById('liveDist').textContent =
-    data.dist != null ? `${data.dist} см` : '—';
+    data.dist != null ? `${data.dist} cm` : '—';
   document.getElementById('liveTs').textContent = fmtTs(data.ts ?? data.radar_ts);
   document.getElementById('liveGesture').textContent = data.last_gesture || '—';
   document.getElementById('liveGestureTs').textContent = fmtTs(data.last_gesture_ts);

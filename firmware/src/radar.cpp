@@ -180,5 +180,17 @@ bool Radar::poll(RadarReading &out) {
     out.m_gate_centroid = total > 0.0f
                               ? static_cast<uint8_t>(min(80.0f, (weighted / total) * 10.0f))
                               : 0;
+
+    memset(out.moving_gates, 0, sizeof(out.moving_gates));
+    memset(out.stationary_gates, 0, sizeof(out.stationary_gates));
+    if (sensor.inEnhancedMode()) {
+        const auto &movingGates = sensor.getMovingSignals();
+        const auto &stillGates = sensor.getStationarySignals();
+        const byte maxGate = min(min(movingGates.N, stillGates.N), static_cast<byte>(RADAR_GATE_COUNT - 1));
+        for (byte gate = 0; gate <= maxGate; ++gate) {
+            if (gate <= movingGates.N) out.moving_gates[gate] = movingGates.values[gate];
+            if (gate <= stillGates.N) out.stationary_gates[gate] = stillGates.values[gate];
+        }
+    }
     return true;
 }

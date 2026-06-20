@@ -2,6 +2,8 @@
 
 #include <ArduinoJson.h>
 
+static constexpr uint8_t RADAR_GATE_COUNT = 9;
+
 struct RadarReading {
     bool present = false;
     bool moving = false;
@@ -14,6 +16,8 @@ struct RadarReading {
     uint16_t s_dist = 0;
     uint16_t m_dist = 0;
     uint8_t m_gate_centroid = 0;
+    uint8_t moving_gates[RADAR_GATE_COUNT]{};
+    uint8_t stationary_gates[RADAR_GATE_COUNT]{};
 };
 
 // Use dist computed in Radar::poll(); fall back to m/s if unset.

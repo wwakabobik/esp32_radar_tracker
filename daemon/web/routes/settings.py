@@ -35,6 +35,11 @@ class SettingsUpdate(BaseModel):
     radar_gate_work: int = Field(default=6, ge=1, le=8)
     radar_gate_sleep: int = Field(default=8, ge=1, le=8)
     media_backend: str = "spotify"
+    ai_enabled: bool = True
+    ai_record_mode: bool = False
+    ai_confidence_min: int = Field(default=60, ge=0, le=100)
+    ai_fatigue_minutes: int = Field(default=45, ge=5, le=240)
+    ai_fallback_heuristics: bool = True
 
 
 @router.get("/")
@@ -65,6 +70,11 @@ async def get_settings(request: Request) -> dict:
         "radar_gate_work": int(stored.get("radar_gate_work", 6)),
         "radar_gate_sleep": int(stored.get("radar_gate_sleep", 8)),
         "media_backend": stored.get("media_backend", "spotify"),
+        "ai_enabled": stored.get("ai_enabled", "1") == "1",
+        "ai_record_mode": stored.get("ai_record_mode", "0") == "1",
+        "ai_confidence_min": int(stored.get("ai_confidence_min", 60)),
+        "ai_fatigue_minutes": int(stored.get("ai_fatigue_minutes", 45)),
+        "ai_fallback_heuristics": stored.get("ai_fallback_heuristics", "1") == "1",
         "defaults": DEFAULT_SETTINGS,
     }
 
@@ -90,6 +100,11 @@ async def update_settings(body: SettingsUpdate) -> dict:
         "radar_gate_work": str(body.radar_gate_work),
         "radar_gate_sleep": str(body.radar_gate_sleep),
         "media_backend": body.media_backend,
+        "ai_enabled": "1" if body.ai_enabled else "0",
+        "ai_record_mode": "1" if body.ai_record_mode else "0",
+        "ai_confidence_min": str(body.ai_confidence_min),
+        "ai_fatigue_minutes": str(body.ai_fatigue_minutes),
+        "ai_fallback_heuristics": "1" if body.ai_fallback_heuristics else "0",
     }
     await set_settings(values)
     await publish_device_config()

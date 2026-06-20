@@ -28,6 +28,8 @@ DISCOVERY_PORT = int(os.getenv("HUB_DISCOVERY_PORT", "18832"))
 WORK_TRACKING_MODES = frozenset({"work", "media"})
 
 TOPIC_RADAR = "hub/radar"
+TOPIC_RADAR_RAW = "hub/radar/raw"
+TOPIC_AI_STATE = "hub/ai/state"
 TOPIC_MODE = "hub/mode"
 TOPIC_BUTTON = "hub/button"
 TOPIC_DISPLAY = "hub/display"
@@ -69,4 +71,9 @@ DEFAULT_SETTINGS = {
     "gesture_hold_ms": "400",
     "gesture_debounce_ms": "1200",
     "gesture_debug": "0",
+    "ai_enabled": "1",
+    "ai_record_mode": "0",
+    "ai_confidence_min": "60",
+    "ai_fatigue_minutes": "45",
+    "ai_fallback_heuristics": "1",
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,14 +20,14 @@
   <main>
     <section class="card">
       <h2>OLED layout</h2>
-      <p class="hint">Настройка экрана гаджета. Save → сразу на устройство по MQTT.</p>
+      <p class="hint">Configure the gadget screen. Save → sent to device over MQTT immediately.</p>
 
       <label class="slider-row">
-        Линий на экране
+        Lines on screen
         <select id="lineCount">
-          <option value="0">0 — пустой экран</option>
-          <option value="1">1 линия</option>
-          <option value="2" selected>2 линии</option>
+          <option value="0">0 — blank screen</option>
+          <option value="1">1 line</option>
+          <option value="2" selected>2 lines</option>
         </select>
       </label>
 
@@ -54,17 +54,17 @@
       <div class="oled" id="oledPreview">
         <div class="oled-line large" id="line0">--</div>
         <div class="oled-line medium" id="line1">--</div>
-        <div class="oled-empty" id="oledEmpty" hidden>Пустой экран</div>
+        <div class="oled-empty" id="oledEmpty" hidden>Blank screen</div>
       </div>
     </section>
 
     <section class="card">
-      <h2>Кнопки на гаджете</h2>
+      <h2>Device buttons</h2>
       <table class="help-table">
-        <tr><th>Btn1 short</th><td>work: пауза сессии</td></tr>
-        <tr><th>Btn1 long</th><td>work: сброс сессии</td></tr>
+        <tr><th>Btn1 short</th><td>work: pause session</td></tr>
+        <tr><th>Btn1 long</th><td>work: reset session</td></tr>
         <tr><th>Btn2</th><td>work → sleep → media → work</td></tr>
-        <tr><th>Btn1 / Btn2</th><td>sleep: лёг / проснулся</td></tr>
+        <tr><th>Btn1 / Btn2</th><td>sleep: went to bed / woke up</td></tr>
       </table>
     </section>
   </main>

@@ -17,6 +17,11 @@ async function loadSettings() {
   document.getElementById('sleepEnergy').value = data.sleep_energy_min;
   document.getElementById('gateSleep').value = data.radar_gate_sleep;
   document.getElementById('mediaBackend').value = data.media_backend;
+  document.getElementById('aiEnabled').checked = data.ai_enabled;
+  document.getElementById('aiRecordMode').checked = data.ai_record_mode;
+  document.getElementById('aiConfidenceMin').value = data.ai_confidence_min;
+  document.getElementById('aiFatigueMinutes').value = data.ai_fatigue_minutes;
+  document.getElementById('aiFallback').checked = data.ai_fallback_heuristics;
 }
 
 document.getElementById('saveSettings').addEventListener('click', async () => {
@@ -34,6 +39,11 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     sleep_energy_min: Number(document.getElementById('sleepEnergy').value),
     radar_gate_sleep: Number(document.getElementById('gateSleep').value),
     media_backend: document.getElementById('mediaBackend').value,
+    ai_enabled: document.getElementById('aiEnabled').checked,
+    ai_record_mode: document.getElementById('aiRecordMode').checked,
+    ai_confidence_min: Number(document.getElementById('aiConfidenceMin').value),
+    ai_fatigue_minutes: Number(document.getElementById('aiFatigueMinutes').value),
+    ai_fallback_heuristics: document.getElementById('aiFallback').checked,
   };
   const res = await fetch('/api/settings/', {
     method: 'PUT',

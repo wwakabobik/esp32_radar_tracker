@@ -19,6 +19,7 @@ from config import (
     TOPIC_OTA,
 )
 from db import (
+    count_fatigue_events_today,
     get_display_layout,
     get_setting,
     get_today_work_seconds,
@@ -66,6 +67,7 @@ async def create_bot_task(daemon: HubDaemon):
             f"Mode: {daemon.mode}\n"
             f"Online: {daemon.online}\n"
             f"Present: {daemon.work.present}\n"
+            f"AI state: {daemon.work.ai_state}\n"
             f"Session: {_fmt_hours(session_sec)}"
         )
         await message.answer(text)
@@ -75,7 +77,11 @@ async def create_bot_task(daemon: HubDaemon):
         if not allowed(message):
             return
         total = await get_today_work_seconds()
-        await message.answer(f"Today at desk: {_fmt_hours(total)}")
+        fatigue = await count_fatigue_events_today()
+        await message.answer(
+            f"Today at desk: {_fmt_hours(total)}\n"
+            f"Fatigue hints (AI): {fatigue}"
+        )
 
     @dp.message(Command("week"))
     async def cmd_week(message: Message) -> None:
