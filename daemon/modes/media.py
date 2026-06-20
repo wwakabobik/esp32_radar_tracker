@@ -41,6 +41,7 @@ class MediaController:
         self.last_gesture_ts: float | None = None
         self._last_fetch = 0.0
         self._position_at_fetch = 0.0
+        self._last_next_mono = 0.0
 
     def format_track_display(self) -> str:
         title = self.track_title.strip()
@@ -72,12 +73,16 @@ class MediaController:
         self.last_gesture_ts = float(ts) if ts is not None else time.time()
         backend = await get_setting("media_backend", "spotify")
 
+        if gesture == "vol":
+            return
         if gesture == "next":
+            now = time.monotonic()
+            if now - self._last_next_mono < 2.5:
+                return
+            self._last_next_mono = now
             await self._next_track(backend)
         elif gesture == "prev":
             await self._prev_track(backend)
-        elif gesture == "vol":
-            await self._set_volume(backend, int(value))
         await self.refresh_track(force=True)
 
     async def _next_track(self, backend: str) -> None:

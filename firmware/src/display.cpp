@@ -165,9 +165,9 @@ void Display::setModeLetter(const char *mode) {
 
 void Display::drawModeBadge() {
     if (modeLetter_.isEmpty()) return;
-    u8g2.setFont(u8g2_font_helvB18_tf);
+    u8g2.setFont(u8g2_font_helvR08_tr);
     const int w = u8g2.getStrWidth(modeLetter_.c_str());
-    u8g2.drawStr(128 - w, 17, modeLetter_.c_str());
+    u8g2.drawStr(128 - w - 1, 10, modeLetter_.c_str());
 }
 
 void Display::showOverlay(const char *line1, const char *line2, uint16_t durationMs) {

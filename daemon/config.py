@@ -69,7 +69,7 @@ DEFAULT_SETTINGS = {
     "gesture_zone_min_cm": "12",
     "gesture_zone_max_cm": "28",
     "gesture_hold_ms": "400",
-    "gesture_debounce_ms": "1200",
+    "gesture_debounce_ms": "2500",
     "gesture_debug": "0",
     "ai_enabled": "1",
     "ai_record_mode": "0",

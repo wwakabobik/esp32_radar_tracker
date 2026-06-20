@@ -2,7 +2,6 @@
 
 #include <ArduinoJson.h>
 
-#include "ai_config.h"
 #include "gesture_config.h"
 #include "time_sync.h"
 
@@ -97,44 +96,13 @@ void MediaMode::fallbackZoneHold(const RadarReading &reading, GestureCallback cb
     zoneEnterMs_ = 0;
 }
 
-void MediaMode::handleMlGesture(const TinyMlResult &ai, const RadarReading &reading,
-                                GestureCallback cb) {
-    const GestureConfig &cfg = gGestureConfig.current();
-    const unsigned long now = millis();
-    const uint16_t d = gestureDist(reading);
-
-    if (ai.confidence < gAiConfig.current().confidenceMin) return;
-
-    if (ai.state == AiState::GestureNext && (now - lastNextMs_) >= cfg.debounceMs) {
-        if (cb) cb("next", static_cast<int>(d));
-        lastNextMs_ = now;
-        zoneArmed_ = false;
-        zoneEnterMs_ = 0;
-        return;
-    }
-    if (ai.state == AiState::GesturePrev && (now - lastPrevMs_) >= cfg.debounceMs) {
-        if (cb) cb("prev", static_cast<int>(d));
-        lastPrevMs_ = now;
-        return;
-    }
-    if (ai.state == AiState::GestureHover && (now - lastHoverMs_) >= 400) {
-        const int vol = static_cast<int>(min<uint16_t>(100, max<uint16_t>(0, (d - 10) * 4)));
-        if (cb) cb("vol", vol);
-        lastHoverMs_ = now;
-    }
+void MediaMode::handleMlGesture(const TinyMlResult &, const RadarReading &, GestureCallback) {
+    // ML swipe/hover actions disabled — 1D radar is too noisy for vol/next/prev.
+    // TinyML output stays in gesture_debug for future training only.
 }
 
 void MediaMode::onRadar(const RadarReading &reading, GestureCallback cb, DebugCallback debugCb,
                         const TinyMlResult *ai) {
     publishDebug(reading, debugCb, ai);
-
-    if (ai && ai->confidence >= gAiConfig.current().confidenceMin &&
-        ai->state != AiState::GestureNone) {
-        handleMlGesture(*ai, reading, cb);
-        return;
-    }
-
-    if (gAiConfig.current().fallbackHeuristics) {
-        fallbackZoneHold(reading, cb);
-    }
+    fallbackZoneHold(reading, cb);
 }

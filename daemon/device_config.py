@@ -23,7 +23,7 @@ async def build_device_config() -> dict:
         "gesture_zone_max_cm": int(s.get("gesture_zone_max_cm", 28)),
         "gesture_hold_ms": int(s.get("gesture_hold_ms", 400)),
         "gesture_debounce_ms": int(
-            s.get("gesture_debounce_ms") or s.get("gesture_swipe_debounce_ms") or 1200
+            s.get("gesture_debounce_ms") or s.get("gesture_swipe_debounce_ms") or 2500
         ),
         "gesture_debug": s.get("gesture_debug", "0") == "1",
         "ai_enabled": s.get("ai_enabled", "1") == "1",
