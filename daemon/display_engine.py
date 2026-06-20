@@ -61,22 +61,30 @@ class DisplayEngine:
             )
             sec = await self.work.standup_countdown_seconds(standup_min)
             return [
-                {"pos": 0, "text": "! Stand up", "font": "large"},
-                {"pos": 1, "text": f"{sec // 60:02d}:{sec % 60:02d}", "font": "large"},
+                {"pos": 0, "text": "! Stand up", "font": "large", "center": True},
+                {"pos": 1, "text": f"{sec // 60:02d}:{sec % 60:02d}", "font": "large", "center": True},
             ]
 
         self._tick_session_flash(now)
         if self._in_session_flash(now):
             sess = await self.work.session_seconds()
             return [
-                {"pos": 0, "text": f"> {_fmt_duration(sess)}", "font": "large"},
-                {"pos": 1, "text": "this session", "font": "medium"},
+                {"pos": 0, "text": f"> {_fmt_duration(sess)}", "font": "large", "center": True},
             ]
 
         return [
-            {"pos": 0, "text": now.strftime("%H"), "font": "xlarge"},
-            {"pos": 1, "text": now.strftime("%M"), "font": "xlarge"},
+            {"pos": 0, "text": now.strftime("%H:%M"), "font": "xlarge", "center": True},
         ]
+
+    async def _build_media_widgets(self) -> list[dict]:
+        now = datetime.now()
+        widgets: list[dict] = [
+            {"pos": 0, "text": now.strftime("%H:%M"), "font": "xlarge", "center": True},
+        ]
+        text = self.media.format_track_display()
+        if text:
+            widgets.append({"pos": 1, "text": text, "font": "medium", "scroll": True})
+        return widgets
 
     async def _line_count(self) -> int:
         raw = await get_setting("display_line_count", "2")
@@ -98,6 +106,8 @@ class DisplayEngine:
 
         if mode == "work" and line_count > 0:
             widgets = await self._build_work_widgets()
+        elif mode == "media" and line_count > 0:
+            widgets = await self._build_media_widgets()
         elif line_count > 0:
             layout = await get_display_layout()
             widgets = []

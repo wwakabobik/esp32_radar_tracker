@@ -299,6 +299,7 @@ static void handleDisplayMessage(const String &message) {
         slot.text = item["text"] | "";
         slot.font = item["font"] | "medium";
         slot.scroll = item["scroll"] | false;
+        slot.center = item["center"] | false;
         if (slot.text.length()) slots.push_back(slot);
     }
     display.render(slots, brightness, doc["line_count"] | 2);

@@ -198,11 +198,22 @@ void Display::loop() {
     }
 }
 
+int Display::centeredBaseline(const String &font) const {
+    if (font == "xlarge") return 44;
+    if (font == "large") return 40;
+    if (font == "small") return 36;
+    return 38;
+}
+
 void Display::drawLineText(int y, const DisplaySlot &slot, const String &font, int scrollWidth) {
     applyFont(font);
     const int textWidth = u8g2.getStrWidth(slot.text.c_str());
+    int x = 0;
+    if (slot.center && !slot.scroll) {
+        x = max(0, (128 - textWidth) / 2);
+    }
     if (!slot.scroll || textWidth <= scrollWidth) {
-        u8g2.drawStr(0, y, slot.text.c_str());
+        u8g2.drawStr(x, y, slot.text.c_str());
         return;
     }
     String marquee = slot.text + "   ";
@@ -253,7 +264,8 @@ void Display::drawSlots(const std::vector<DisplaySlot> &slots) {
     }
     for (const auto *slot : visible) {
         const String font = effectiveFont(slot->font);
-        int y = lineBaseline(font, singleLine, slot->pos);
+        const bool loneCentered = slot->center && visible.size() == 1;
+        int y = loneCentered ? centeredBaseline(font) : lineBaseline(font, singleLine, slot->pos);
         if (y > 62) y = 62;
         drawLineText(y, *slot, font, scrollWidth);
     }
