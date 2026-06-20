@@ -20,11 +20,13 @@
 #endif
 
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "0.5.2"
+#define FIRMWARE_VERSION "0.6.0"
 #endif
 
 #define MQTT_CLIENT_ID HOSTNAME
 #define MQTT_TOPIC_RADAR "hub/radar"
+#define MQTT_TOPIC_RADAR_RAW "hub/radar/raw"
+#define MQTT_TOPIC_AI_STATE "hub/ai/state"
 #define MQTT_TOPIC_MODE "hub/mode"
 #define MQTT_TOPIC_BUTTON "hub/button"
 #define MQTT_TOPIC_DISPLAY "hub/display"

@@ -1,8 +1,18 @@
 # Personal Presence Hub
 
-ESP32 + HLK-LD2410C — personal presence tracker: work sessions, sleep monitoring, near-zone media gestures. A Python daemon on your Mac is the brain; the device talks over MQTT. **No SPT cloud.**
+ESP32 + HLK-LD2410C — personal presence tracker: work sessions, sleep monitoring, radar gestures. A Python daemon on your Mac handles logging and UI; **on-device TinyML** runs inference on the ESP32. **No SPT cloud.**
 
-Detailed spec: [PLAN_EN.md](PLAN_EN.md)
+Detailed spec: [PLAN_EN.md](PLAN_EN.md) · Edge AI: [docs/EDGE_AI.md](docs/EDGE_AI.md) · **Implementation decisions:** [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)
+
+## Edge AI (TinyML)
+
+Pre-trained models in `firmware/src/model_data.h` classify radar feature windows on the ESP32:
+
+- **Work** — presence, static fatigue (stretch hint), environmental noise filter
+- **Media** — swipe next/prev, hover volume (fallback: zone-hold next)
+- **Sleep** — breathing vs restless; Mac estimates breath rate from nightly samples
+
+Configure in web **Settings → Edge AI**. Train on your data: `tools/ml/` (see [docs/EDGE_AI.md](docs/EDGE_AI.md)).
 
 ## Network
 
@@ -31,7 +41,7 @@ ESP32 **always** writes events to LittleFS, even without the Mac:
 | `presence` on/off                              | work  |
 | `mode`                                         | all   |
 | `button`                                       | all   |
-| `gesture` next                                 | media |
+| `gesture` next / prev / vol                      | media |
 | `sleep_start` / `sleep_end` / `sleep_movement` | sleep |
 
 

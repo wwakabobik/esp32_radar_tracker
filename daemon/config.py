@@ -28,6 +28,8 @@ DISCOVERY_PORT = int(os.getenv("HUB_DISCOVERY_PORT", "18832"))
 WORK_TRACKING_MODES = frozenset({"work", "media"})
 
 TOPIC_RADAR = "hub/radar"
+TOPIC_RADAR_RAW = "hub/radar/raw"
+TOPIC_AI_STATE = "hub/ai/state"
 TOPIC_MODE = "hub/mode"
 TOPIC_BUTTON = "hub/button"
 TOPIC_DISPLAY = "hub/display"
@@ -40,10 +42,10 @@ TOPIC_DEBUG_GESTURE = "hub/debug/gesture"
 
 DEFAULT_DISPLAY_LAYOUT = [
     {"slot": 0, "widget": "clock", "font": "large"},
-    {"slot": 1, "widget": "session", "font": "medium"},
+    {"slot": 1, "widget": "today", "font": "medium"},
 ]
 
-DISPLAY_FONTS = ("small", "medium", "large")
+DISPLAY_FONTS = ("small", "medium", "large", "xlarge")
 
 TOPIC_CONFIG = "hub/config"
 
@@ -67,6 +69,19 @@ DEFAULT_SETTINGS = {
     "gesture_zone_min_cm": "12",
     "gesture_zone_max_cm": "28",
     "gesture_hold_ms": "400",
-    "gesture_debounce_ms": "1200",
+    "gesture_debounce_ms": "2500",
+    "gesture_zone_hold": "1",
+    "gesture_ml_next": "0",
+    "gesture_ml_prev": "0",
+    "gesture_ml_vol": "0",
+    "gesture_ml_in_zone": "1",
+    "gesture_ml_vol_min_cm": "12",
+    "gesture_ml_vol_max_cm": "40",
+    "gesture_ml_vol_ms": "2500",
     "gesture_debug": "0",
+    "ai_enabled": "1",
+    "ai_record_mode": "0",
+    "ai_confidence_min": "60",
+    "ai_fatigue_minutes": "45",
+    "ai_fallback_heuristics": "1",
 }

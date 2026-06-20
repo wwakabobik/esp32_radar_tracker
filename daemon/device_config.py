@@ -23,9 +23,22 @@ async def build_device_config() -> dict:
         "gesture_zone_max_cm": int(s.get("gesture_zone_max_cm", 28)),
         "gesture_hold_ms": int(s.get("gesture_hold_ms", 400)),
         "gesture_debounce_ms": int(
-            s.get("gesture_debounce_ms") or s.get("gesture_swipe_debounce_ms") or 1200
+            s.get("gesture_debounce_ms") or s.get("gesture_swipe_debounce_ms") or 2500
         ),
         "gesture_debug": s.get("gesture_debug", "0") == "1",
+        "gesture_zone_hold": s.get("gesture_zone_hold", "1") == "1",
+        "gesture_ml_next": s.get("gesture_ml_next", "0") == "1",
+        "gesture_ml_prev": s.get("gesture_ml_prev", "0") == "1",
+        "gesture_ml_vol": s.get("gesture_ml_vol", "0") == "1",
+        "gesture_ml_in_zone": s.get("gesture_ml_in_zone", "1") == "1",
+        "gesture_ml_vol_min_cm": int(s.get("gesture_ml_vol_min_cm", 12)),
+        "gesture_ml_vol_max_cm": int(s.get("gesture_ml_vol_max_cm", 40)),
+        "gesture_ml_vol_ms": int(s.get("gesture_ml_vol_ms", 2500)),
+        "ai_enabled": s.get("ai_enabled", "1") == "1",
+        "ai_record_mode": s.get("ai_record_mode", "0") == "1",
+        "ai_confidence_min": int(s.get("ai_confidence_min", 60)),
+        "ai_fatigue_minutes": int(s.get("ai_fatigue_minutes", 45)),
+        "ai_fallback_heuristics": s.get("ai_fallback_heuristics", "1") == "1",
     }
 
 

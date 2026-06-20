@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -24,29 +24,31 @@
       <a href="/">Dashboard</a>
       <a href="/static/display.html">Display</a>
       <a href="/static/settings.html">Settings</a>
-      <a href="/static/gestures.html">Gestures</a>
+      <a href="/static/gestures.html">Media gestures</a>
       <a href="/static/sensor-log.html" class="active">Sensor log</a>
     </nav>
   </header>
 
   <main>
     <section class="card">
-      <h2>Live log датчика (HTTP)</h2>
+      <h2>Live sensor log (HTTP)</h2>
       <p class="hint">
-        Сырой поток MQTT: <code>hub/radar</code>, <code>hub/gesture</code>, <code>hub/debug/gesture</code>.
-        <strong>Ближняя зона → next</strong>. Поля ts: hub = Mac, device = ESP32.
+        Raw MQTT stream: <code>hub/radar</code>, <code>hub/gesture</code>, <code>hub/debug/gesture</code>.
+        <strong>Near zone → next</strong>. ts fields: hub = Mac, device = ESP32.
       </p>
       <p class="hint">
-        <strong>Тест жестов:</strong> media mode, debug ON → Clear log → по одному:
-        ① вниз (к датчику) ② вверх ③ вниз ④ вверх — между жестами пауза 2 с.
-        Слева/справа радар не различает.
+        <strong>Gesture test:</strong> media mode, debug ON → Clear log → one at a time:
+        ① down (toward sensor) ② up ③ down ④ up — pause 2 s between gestures.
+        Radar cannot distinguish left/right.
       </p>
       <div class="log-toolbar">
-        <label><input type="checkbox" id="autoScroll" checked /> Авто-скролл</label>
-        <label>Фильтр
+        <label><input type="checkbox" id="autoScroll" checked /> Auto-scroll</label>
+        <label>Filter
           <select id="kindFilter">
-            <option value="">все</option>
+            <option value="">all</option>
             <option value="radar">radar</option>
+            <option value="radar_raw">radar_raw</option>
+            <option value="ai_state">ai_state</option>
             <option value="gesture">gesture</option>
             <option value="gesture_debug">gesture_debug</option>
           </select>

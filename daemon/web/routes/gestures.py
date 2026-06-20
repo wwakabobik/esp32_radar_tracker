@@ -12,7 +12,15 @@ GESTURE_DEFAULTS = {
     "gesture_zone_min_cm": 12,
     "gesture_zone_max_cm": 28,
     "gesture_hold_ms": 400,
-    "gesture_debounce_ms": 1200,
+    "gesture_debounce_ms": 2500,
+    "gesture_zone_hold": True,
+    "gesture_ml_next": False,
+    "gesture_ml_prev": False,
+    "gesture_ml_vol": False,
+    "gesture_ml_in_zone": True,
+    "gesture_ml_vol_min_cm": 12,
+    "gesture_ml_vol_max_cm": 40,
+    "gesture_ml_vol_ms": 2500,
     "gesture_debug": False,
 }
 
@@ -21,8 +29,23 @@ class GestureSettingsUpdate(BaseModel):
     gesture_zone_min_cm: int = Field(default=12, ge=0, le=50)
     gesture_zone_max_cm: int = Field(default=28, ge=3, le=50)
     gesture_hold_ms: int = Field(default=400, ge=100, le=3000)
-    gesture_debounce_ms: int = Field(default=1200, ge=300, le=10000)
+    gesture_debounce_ms: int = Field(default=2500, ge=300, le=10000)
+    gesture_zone_hold: bool = True
+    gesture_ml_next: bool = False
+    gesture_ml_prev: bool = False
+    gesture_ml_vol: bool = False
+    gesture_ml_in_zone: bool = True
+    gesture_ml_vol_min_cm: int = Field(default=12, ge=0, le=50)
+    gesture_ml_vol_max_cm: int = Field(default=40, ge=3, le=50)
+    gesture_ml_vol_ms: int = Field(default=2500, ge=300, le=10000)
     gesture_debug: bool = False
+
+
+def _bool_setting(stored: dict, key: str, default: bool) -> bool:
+    raw = stored.get(key)
+    if raw is None:
+        return default
+    return str(raw) == "1"
 
 
 def _gesture_from_stored(stored: dict) -> dict:
@@ -32,7 +55,19 @@ def _gesture_from_stored(stored: dict) -> dict:
         "gesture_zone_max_cm": int(stored.get("gesture_zone_max_cm", GESTURE_DEFAULTS["gesture_zone_max_cm"])),
         "gesture_hold_ms": int(stored.get("gesture_hold_ms", GESTURE_DEFAULTS["gesture_hold_ms"])),
         "gesture_debounce_ms": int(debounce or GESTURE_DEFAULTS["gesture_debounce_ms"]),
-        "gesture_debug": stored.get("gesture_debug", "0") == "1",
+        "gesture_zone_hold": _bool_setting(stored, "gesture_zone_hold", GESTURE_DEFAULTS["gesture_zone_hold"]),
+        "gesture_ml_next": _bool_setting(stored, "gesture_ml_next", GESTURE_DEFAULTS["gesture_ml_next"]),
+        "gesture_ml_prev": _bool_setting(stored, "gesture_ml_prev", GESTURE_DEFAULTS["gesture_ml_prev"]),
+        "gesture_ml_vol": _bool_setting(stored, "gesture_ml_vol", GESTURE_DEFAULTS["gesture_ml_vol"]),
+        "gesture_ml_in_zone": _bool_setting(stored, "gesture_ml_in_zone", GESTURE_DEFAULTS["gesture_ml_in_zone"]),
+        "gesture_ml_vol_min_cm": int(
+            stored.get("gesture_ml_vol_min_cm", GESTURE_DEFAULTS["gesture_ml_vol_min_cm"])
+        ),
+        "gesture_ml_vol_max_cm": int(
+            stored.get("gesture_ml_vol_max_cm", GESTURE_DEFAULTS["gesture_ml_vol_max_cm"])
+        ),
+        "gesture_ml_vol_ms": int(stored.get("gesture_ml_vol_ms", GESTURE_DEFAULTS["gesture_ml_vol_ms"])),
+        "gesture_debug": _bool_setting(stored, "gesture_debug", GESTURE_DEFAULTS["gesture_debug"]),
         "defaults": GESTURE_DEFAULTS,
     }
 
@@ -47,11 +82,21 @@ async def get_gesture_settings() -> dict:
 async def update_gesture_settings(body: GestureSettingsUpdate) -> dict:
     if body.gesture_zone_min_cm >= body.gesture_zone_max_cm:
         return {"ok": False, "error": "zone_min must be less than zone_max"}
+    if body.gesture_ml_vol_min_cm >= body.gesture_ml_vol_max_cm:
+        return {"ok": False, "error": "vol_min must be less than vol_max"}
     values = {
         "gesture_zone_min_cm": str(body.gesture_zone_min_cm),
         "gesture_zone_max_cm": str(body.gesture_zone_max_cm),
         "gesture_hold_ms": str(body.gesture_hold_ms),
         "gesture_debounce_ms": str(body.gesture_debounce_ms),
+        "gesture_zone_hold": "1" if body.gesture_zone_hold else "0",
+        "gesture_ml_next": "1" if body.gesture_ml_next else "0",
+        "gesture_ml_prev": "1" if body.gesture_ml_prev else "0",
+        "gesture_ml_vol": "1" if body.gesture_ml_vol else "0",
+        "gesture_ml_in_zone": "1" if body.gesture_ml_in_zone else "0",
+        "gesture_ml_vol_min_cm": str(body.gesture_ml_vol_min_cm),
+        "gesture_ml_vol_max_cm": str(body.gesture_ml_vol_max_cm),
+        "gesture_ml_vol_ms": str(body.gesture_ml_vol_ms),
         "gesture_debug": "1" if body.gesture_debug else "0",
     }
     await set_settings(values)

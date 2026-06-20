@@ -28,6 +28,7 @@ firmware/secrets.ini
 # Local security research (keep on disk, never commit)
 .security/
 PLAN_RU.md
+docs/STORY_AND_TINYML.md
 
 # Service script output (repo root)
 dumps/

@@ -9,6 +9,8 @@ from db import end_session, get_active_session, get_today_work_seconds, start_se
 class WorkTracker:
     def __init__(self) -> None:
         self.present = False
+        self.fatigue = False
+        self.ai_state = "vacant"
         self.last_standup_at: datetime | None = None
         self.reminder_active = False
         self._minute_had_presence: dict[int, bool] = {}
@@ -26,7 +28,22 @@ class WorkTracker:
             await start_session("work")
 
     async def on_radar(self, data: dict) -> None:
+        ai_state = data.get("ai_state")
+        if ai_state is not None:
+            return
         self.present = bool(data.get("presence"))
+        self._track_minute_presence()
+
+    async def on_ai_state(self, data: dict) -> None:
+        state = str(data.get("state", "vacant"))
+        self.ai_state = state
+        if state == "env_noise":
+            return
+        self.present = state in {"active_focus", "static_fatigue"}
+        self.fatigue = state == "static_fatigue"
+        self._track_minute_presence()
+
+    def _track_minute_presence(self) -> None:
         minute = int(datetime.now(timezone.utc).timestamp()) // 60
         if self.present:
             self._minute_had_presence[minute] = True
@@ -69,7 +86,8 @@ class WorkTracker:
             self.last_standup_at = now
             return False
         elapsed = (now - self.last_standup_at).total_seconds() / 60
-        if elapsed >= interval_min:
+        trigger = self.fatigue or elapsed >= interval_min
+        if trigger:
             self.last_standup_at = now
             self.reminder_active = True
             return True
@@ -79,8 +97,7 @@ class WorkTracker:
         if not self.present or self.last_standup_at is None:
             return interval_min * 60
         elapsed = (datetime.now(timezone.utc) - self.last_standup_at).total_seconds()
-        remaining = interval_min * 60 - elapsed
-        return max(0, int(remaining))
+        return max(0, int(interval_min * 60 - elapsed))
 
     def clear_reminder(self) -> None:
         self.reminder_active = False

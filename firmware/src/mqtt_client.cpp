@@ -84,7 +84,7 @@ void MqttHub::begin(ModeHandler modeHandler, OtaHandler otaHandler, DisplayHandl
     WiFi.mode(WIFI_STA);
     ensureWifi();
     client_.setCallback(staticCallback);
-    client_.setBufferSize(2048);
+    client_.setBufferSize(4096);
     ensureMqtt();
 }
 
@@ -213,20 +213,65 @@ void MqttHub::loop() {
     }
 }
 
-void MqttHub::publishRadar(const RadarReading &reading) {
+void MqttHub::publishRadar(const RadarReading &reading, uint8_t aiState, uint8_t aiConfidence) {
     if (!client_.connected()) return;
-    StaticJsonDocument<384> doc;
+    StaticJsonDocument<512> doc;
     doc["dist"] = reading.dist;
     doc["gesture_dist"] = reading.dist;
     doc["presence_dist"] = reading.presence_dist;
     doc["m_dist"] = reading.m_dist;
     doc["s_dist"] = reading.s_dist;
+    doc["s_energy"] = reading.s_energy;
+    doc["m_energy"] = reading.m_energy;
+    doc["gate_dist"] = reading.gate_dist;
+    doc["m_gate_centroid"] = reading.m_gate_centroid;
     doc["presence"] = reading.present || reading.dist > 0;
     doc["moving"] = reading.moving;
+    if (aiState != 255) {
+        doc["ai_state"] = aiState;
+        doc["ai_confidence"] = aiConfidence;
+    }
     if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
-    char payload[384];
+    char payload[512];
     const size_t n = serializeJson(doc, payload, sizeof(payload));
     if (n > 0) client_.publish(MQTT_TOPIC_RADAR, payload);
+}
+
+void MqttHub::publishRadarRaw(const RadarReading &reading) {
+    if (!client_.connected()) return;
+    StaticJsonDocument<768> doc;
+    doc["dist"] = reading.dist;
+    doc["presence_dist"] = reading.presence_dist;
+    doc["m_dist"] = reading.m_dist;
+    doc["s_dist"] = reading.s_dist;
+    doc["s_energy"] = reading.s_energy;
+    doc["m_energy"] = reading.m_energy;
+    doc["gate_dist"] = reading.gate_dist;
+    doc["m_gate_centroid"] = reading.m_gate_centroid;
+    doc["moving"] = reading.moving;
+    doc["presence"] = reading.present;
+    JsonArray mGates = doc["moving_gates"].to<JsonArray>();
+    JsonArray sGates = doc["stationary_gates"].to<JsonArray>();
+    for (uint8_t i = 0; i < RADAR_GATE_COUNT; ++i) {
+        mGates.add(reading.moving_gates[i]);
+        sGates.add(reading.stationary_gates[i]);
+    }
+    if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
+    char payload[768];
+    const size_t n = serializeJson(doc, payload, sizeof(payload));
+    if (n > 0) client_.publish(MQTT_TOPIC_RADAR_RAW, payload);
+}
+
+void MqttHub::publishAiState(const char *mode, const char *state, uint8_t confidence) {
+    if (!client_.connected() || !mode || !state) return;
+    StaticJsonDocument<192> doc;
+    doc["mode"] = mode;
+    doc["state"] = state;
+    doc["confidence"] = confidence;
+    if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
+    char payload[192];
+    serializeJson(doc, payload, sizeof(payload));
+    client_.publish(MQTT_TOPIC_AI_STATE, payload);
 }
 
 void MqttHub::publishButton(uint8_t id, const char *event, uint32_t eventId) {

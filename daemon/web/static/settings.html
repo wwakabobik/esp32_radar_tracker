@@ -13,7 +13,7 @@
       <a href="/">Dashboard</a>
       <a href="/static/display.html">Display</a>
       <a href="/static/settings.html" class="active">Settings</a>
-      <a href="/static/gestures.html">Gestures</a>
+      <a href="/static/gestures.html">Media gestures</a>
       <a href="/static/sensor-log.html">Sensor log</a>
     </nav>
   </header>
@@ -71,6 +71,32 @@
     </section>
 
     <section class="card">
+      <h2>Edge AI (TinyML)</h2>
+      <p class="hint">
+        On-device inference on ESP32. Recording mode streams gate data for training.
+        <strong>ML media gestures</strong> (next / prev / volume) are configured on
+        <a href="/static/gestures.html">Media gestures</a>, not here — this section only enables the model globally.
+      </p>
+      <label class="slider-row">
+        <input type="checkbox" id="aiEnabled" checked /> AI enabled
+      </label>
+      <label class="slider-row">
+        <input type="checkbox" id="aiRecordMode" /> Recording mode (hub/radar/raw)
+      </label>
+      <label class="slider-row">
+        Confidence min (0–100)
+        <input type="number" id="aiConfidenceMin" min="0" max="100" value="60" />
+      </label>
+      <label class="slider-row">
+        Fatigue threshold (minutes)
+        <input type="number" id="aiFatigueMinutes" min="5" max="240" value="45" />
+      </label>
+      <label class="slider-row">
+        <input type="checkbox" id="aiFallback" checked /> Fallback heuristics when confidence low
+      </label>
+    </section>
+
+    <section class="card">
       <h2>Media</h2>
       <label class="slider-row">
         Backend
@@ -79,13 +105,18 @@
           <option value="system_keys">System media keys</option>
         </select>
       </label>
-      <p class="hint">Near-zone gesture → next track: <a href="/static/gestures.html">Gestures</a>.</p>
+      <p class="hint">
+        Radar control in <strong>media</strong> mode: zone hold → next, optional ML gestures, near-zone distance.
+      </p>
+      <p id="gestureSummary">Loading gesture settings…</p>
+      <a class="nav-card-link" href="/static/gestures.html">Open Media gestures →</a>
     </section>
 
     <button id="saveSettings" type="button">Save settings</button>
     <p id="settingsStatus"></p>
   </main>
 
+  <script src="/static/gesture-summary.js"></script>
   <script src="/static/settings.js"></script>
 </body>
 </html>

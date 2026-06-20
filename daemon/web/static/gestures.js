@@ -6,7 +6,7 @@ let zoneMax = 28;
 function fmtTs(ts) {
   if (ts == null || ts === '') return '—';
   const d = new Date(Number(ts) * 1000);
-  return d.toLocaleString('ru-RU', { hour12: false, fractionalSecondDigits: 3 });
+  return d.toLocaleString('en-US', { hour12: false, fractionalSecondDigits: 3 });
 }
 
 function applySettings(data) {
@@ -16,6 +16,14 @@ function applySettings(data) {
   document.getElementById('zoneMax').value = zoneMax;
   document.getElementById('holdMs').value = data.gesture_hold_ms;
   document.getElementById('debounceMs').value = data.gesture_debounce_ms;
+  document.getElementById('zoneHold').checked = data.gesture_zone_hold;
+  document.getElementById('mlNext').checked = data.gesture_ml_next;
+  document.getElementById('mlPrev').checked = data.gesture_ml_prev;
+  document.getElementById('mlVol').checked = data.gesture_ml_vol;
+  document.getElementById('mlInZone').checked = data.gesture_ml_in_zone;
+  document.getElementById('volMin').value = data.gesture_ml_vol_min_cm;
+  document.getElementById('volMax').value = data.gesture_ml_vol_max_cm;
+  document.getElementById('volMs').value = data.gesture_ml_vol_ms;
   document.getElementById('gestureDebug').checked = data.gesture_debug;
   updateBarLabels();
   updateZoneOverlay();
@@ -38,15 +46,15 @@ function updateZoneOverlay() {
 
 function updateLive(data) {
   document.getElementById('liveMode').textContent = data.mode || '—';
-  document.getElementById('liveOnline').textContent = data.online ? 'да' : 'нет';
+  document.getElementById('liveOnline').textContent = data.online ? 'yes' : 'no';
   document.getElementById('liveInZone').textContent =
-    data.in_zone != null ? (data.in_zone ? 'да' : 'нет') : '—';
+    data.in_zone != null ? (data.in_zone ? 'yes' : 'no') : '—';
   document.getElementById('liveHold').textContent =
     data.hold_left_ms != null ? `${data.hold_left_ms} ms` : '—';
   document.getElementById('liveArmed').textContent =
-    data.zone_armed != null ? (data.zone_armed ? 'да (можно)' : 'нет — убери руку') : '—';
+    data.zone_armed != null ? (data.zone_armed ? 'yes (ready)' : 'no — remove hand') : '—';
   document.getElementById('liveDist').textContent =
-    data.dist != null ? `${data.dist} см` : '—';
+    data.dist != null ? `${data.dist} cm` : '—';
   document.getElementById('liveTs').textContent = fmtTs(data.ts ?? data.radar_ts);
   document.getElementById('liveGesture').textContent = data.last_gesture || '—';
   document.getElementById('liveGestureTs').textContent = fmtTs(data.last_gesture_ts);
@@ -59,6 +67,24 @@ function updateLive(data) {
   } else {
     marker.hidden = true;
   }
+}
+
+function collectBody() {
+  return {
+    gesture_zone_min_cm: Number(document.getElementById('zoneMin').value),
+    gesture_zone_max_cm: Number(document.getElementById('zoneMax').value),
+    gesture_hold_ms: Number(document.getElementById('holdMs').value),
+    gesture_debounce_ms: Number(document.getElementById('debounceMs').value),
+    gesture_zone_hold: document.getElementById('zoneHold').checked,
+    gesture_ml_next: document.getElementById('mlNext').checked,
+    gesture_ml_prev: document.getElementById('mlPrev').checked,
+    gesture_ml_vol: document.getElementById('mlVol').checked,
+    gesture_ml_in_zone: document.getElementById('mlInZone').checked,
+    gesture_ml_vol_min_cm: Number(document.getElementById('volMin').value),
+    gesture_ml_vol_max_cm: Number(document.getElementById('volMax').value),
+    gesture_ml_vol_ms: Number(document.getElementById('volMs').value),
+    gesture_debug: document.getElementById('gestureDebug').checked,
+  };
 }
 
 async function loadSettings() {
@@ -75,13 +101,7 @@ async function pollLive() {
 }
 
 document.getElementById('saveGestures').addEventListener('click', async () => {
-  const body = {
-    gesture_zone_min_cm: Number(document.getElementById('zoneMin').value),
-    gesture_zone_max_cm: Number(document.getElementById('zoneMax').value),
-    gesture_hold_ms: Number(document.getElementById('holdMs').value),
-    gesture_debounce_ms: Number(document.getElementById('debounceMs').value),
-    gesture_debug: document.getElementById('gestureDebug').checked,
-  };
+  const body = collectBody();
   const res = await fetch('/api/gestures/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

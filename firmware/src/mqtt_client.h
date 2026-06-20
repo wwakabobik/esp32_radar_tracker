@@ -19,7 +19,9 @@ public:
                ConfigHandler configHandler = nullptr);
     void loop();
     bool connected() { return client_.connected(); }
-    void publishRadar(const RadarReading &reading);
+    void publishRadar(const RadarReading &reading, uint8_t aiState = 255, uint8_t aiConfidence = 0);
+    void publishRadarRaw(const RadarReading &reading);
+    void publishAiState(const char *mode, const char *state, uint8_t confidence);
     void publishButton(uint8_t id, const char *event, uint32_t eventId = 0);
     void publishGesture(const char *type, int value, uint32_t eventId = 0);
     void publishStatus(const char *mode);

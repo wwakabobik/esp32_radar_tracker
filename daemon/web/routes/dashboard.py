@@ -21,10 +21,16 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 async def today_stats(request: Request) -> dict:
     daemon = request.app.state.daemon
     total = await get_today_work_seconds()
+    from db import count_fatigue_events_today
+
     return {
         "mode": daemon.mode,
         "online": daemon.online,
         "present": daemon.work.present,
+        "fatigue": daemon.work.fatigue,
+        "ai_state": daemon.work.ai_state,
+        "ai_confidence": daemon.last_ai_state.get("confidence"),
+        "fatigue_events_today": await count_fatigue_events_today(),
         "today_seconds": total,
         "session_seconds": await daemon.work.session_seconds(),
     }

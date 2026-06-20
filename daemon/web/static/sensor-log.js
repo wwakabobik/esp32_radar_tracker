@@ -5,7 +5,7 @@ const allEntries = [];
 function fmtTime(ts) {
   if (!ts) return '—';
   const d = new Date(ts * 1000);
-  return d.toLocaleTimeString('ru-RU', { hour12: false, fractionalSecondDigits: 3 });
+  return d.toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
 }
 
 function summarize(entry) {
@@ -14,22 +14,28 @@ function summarize(entry) {
     return [
       `pres=${p.presence ? 1 : 0}`,
       `gest=${p.gesture_dist ?? p.dist ?? '—'}`,
-      `body=${p.presence_dist ?? '—'}`,
-      `g=${p.gate_dist ?? '—'}`,
-      `m=${p.m_dist ?? '—'}`,
-      `s=${p.s_dist ?? '—'}`,
+      `se=${p.s_energy ?? '—'}`,
+      `me=${p.m_energy ?? '—'}`,
+      `ai=${p.ai_state ?? '—'}`,
       `mv=${p.moving ? 1 : 0}`,
     ].join(' ');
+  }
+  if (entry.kind === 'ai_state') {
+    return `${p.state} conf=${p.confidence ?? '—'} mode=${p.mode ?? '—'}`;
+  }
+  if (entry.kind === 'radar_raw') {
+    return `raw dist=${p.dist} se=${p.s_energy} gates=${(p.moving_gates || []).slice(0, 3).join(',')}…`;
   }
   if (entry.kind === 'gesture_debug') {
     return [
       `zone=${p.in_zone ? 1 : 0}`,
       `d=${p.dist ?? '—'}`,
+      `ai=${p.ai_gesture ?? '—'}`,
       `hold=${p.hold_left_ms ?? '—'}`,
     ].join(' ');
   }
   if (entry.kind === 'gesture') {
-    return `next dist=${p.value ?? 0} ts=${p.ts ?? '—'}`;
+    return `${p.type ?? 'next'} dist=${p.value ?? 0} ts=${p.ts ?? '—'}`;
   }
   return JSON.stringify(p);
 }

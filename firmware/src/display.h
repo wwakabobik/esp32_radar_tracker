@@ -8,6 +8,7 @@ struct DisplaySlot {
     String text;
     String font = "medium";
     bool scroll = false;
+    bool center = false;
 };
 
 class Display {
@@ -46,6 +47,7 @@ private:
     void applyFont(const String &font);
     String effectiveFont(const String &font) const;
     int lineBaseline(const String &font, bool singleLine, uint8_t pos) const;
+    int centeredBaseline(const String &font) const;
     int scrollMaxWidth() const;
     void clearScreen();
 };

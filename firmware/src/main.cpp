@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <vector>
+#include "ai_config.h"
 #include "buttons.h"
 #include "config.h"
 #include "display.h"
@@ -19,6 +20,7 @@
 #include "button_config.h"
 #include "gesture_config.h"
 #include "time_sync.h"
+#include "tiny_ml.h"
 
 static Radar radar;
 static Display display;
@@ -33,6 +35,8 @@ static String currentMode = "work";
 static String sleepDisplayMode = "off";
 static unsigned long lastRadarPublish = 0;
 static unsigned long lastNextGestureMs = 0;
+static unsigned long lastAiStatePublish = 0;
+static String lastPublishedAiState;
 
 static void applyMode(const String &mode, bool fromHub = false);
 static void cycleMode();
@@ -41,6 +45,8 @@ static void handleConfigMessage(const String &message);
 static void logModeChange(const String &mode);
 static void handleButton(const ButtonMessage &msg);
 static void applySleepDisplay();
+static void publishAiStateIfChanged(const TinyMlResult &result);
+static uint8_t aiStateWireId(AiState state);
 
 void setup() {
     Serial.begin(115200);
@@ -55,6 +61,8 @@ void setup() {
     gRadarConfig.begin();
     gButtonConfig.begin();
     gGestureConfig.begin();
+    gAiConfig.begin();
+    gTinyMl.begin();
     display.begin();
     radar.begin();
     buttons.begin(handleButton);
@@ -69,31 +77,68 @@ void setup() {
     applyMode(ModeStore::load(), false);
 }
 
+static uint8_t aiStateWireId(AiState state) {
+    return static_cast<uint8_t>(state);
+}
+
+static void publishAiStateIfChanged(const TinyMlResult &result) {
+    const String stateName = aiStateToString(result.state);
+    if (stateName == lastPublishedAiState) return;
+
+    const unsigned long now = millis();
+    if (now - lastAiStatePublish < 500) return;
+
+    mqtt.publishAiState(currentMode.c_str(), stateName.c_str(), result.confidence);
+    lastPublishedAiState = stateName;
+    lastAiStatePublish = now;
+}
+
 static void handleRadarReading(const RadarReading &reading) {
-    if (currentMode == "work" || currentMode == "media") workMode.onRadar(reading);
-    if (currentMode == "sleep") sleepMode.onRadar(reading);
-    if (currentMode == "media") {
+    const unsigned long now = millis();
+    gTinyMl.pushFrame(reading, now);
+
+    TinyMlResult aiResult{};
+    if (currentMode == "work") {
+        aiResult = gTinyMl.inferWork();
+        workMode.onRadar(reading, &aiResult);
+        if (workMode.isFatigue()) {
+            display.showOverlay("Stretch?", "Take a break");
+        }
+        publishAiStateIfChanged(aiResult);
+    } else if (currentMode == "sleep") {
+        aiResult = gTinyMl.inferSleep();
+        sleepMode.onRadar(reading, &aiResult);
+        publishAiStateIfChanged(aiResult);
+    } else if (currentMode == "media") {
+        aiResult = gTinyMl.inferGesture();
+        workMode.onRadar(reading, nullptr);
         mediaMode.onRadar(
             reading,
             [](const char *type, int value) {
-                const unsigned long now = millis();
+                const unsigned long gestureNow = millis();
                 const GestureConfig &cfg = gGestureConfig.current();
-                if (strcmp(type, "next") == 0 && now - lastNextGestureMs < cfg.debounceMs) return;
-                lastNextGestureMs = now;
+                if (strcmp(type, "next") == 0 && gestureNow - lastNextGestureMs < cfg.debounceMs) return;
+                lastNextGestureMs = gestureNow;
                 StaticJsonDocument<64> data;
                 data["type"] = type;
                 data["value"] = value;
                 const uint32_t eid = gEventLog.append("gesture", "media", data.as<JsonObject>());
                 mqtt.publishGesture(type, value, eid);
             },
-            [](const char *payload) { mqtt.publishDebug("gesture", payload); });
+            [](const char *payload) { mqtt.publishDebug("gesture", payload); },
+            &aiResult);
+        publishAiStateIfChanged(aiResult);
     }
 
-    const unsigned long now = millis();
+    if (gAiConfig.current().recordMode) {
+        mqtt.publishRadarRaw(reading);
+    }
+
     const unsigned long publishMs =
         currentMode == "media" ? RADAR_PUBLISH_INTERVAL_MEDIA_MS : RADAR_PUBLISH_INTERVAL_MS;
     if (now - lastRadarPublish >= publishMs) {
-        mqtt.publishRadar(reading);
+        const uint8_t aiState = aiResult.confidence > 0 ? aiStateWireId(aiResult.state) : 255;
+        mqtt.publishRadar(reading, aiState, aiResult.confidence);
         lastRadarPublish = now;
     }
 }
@@ -127,6 +172,7 @@ static void handleConfigMessage(const String &message) {
     gRadarConfig.applyFromJson(message.c_str());
     gGestureConfig.applyFromJson(message.c_str());
     gButtonConfig.applyFromJson(message.c_str());
+    gAiConfig.applyFromJson(message.c_str());
     buttons.applyConfig();
     StaticJsonDocument<256> doc;
     if (deserializeJson(doc, message) == DeserializationError::Ok) {
@@ -157,6 +203,8 @@ static void applyMode(const String &mode, bool fromHub) {
 
     currentMode = mode;
     ModeStore::save(currentMode);
+    gTinyMl.setMode(currentMode.c_str());
+    lastPublishedAiState = "";
 
     if (currentMode == "work") workMode.onEnter(radar);
     if (currentMode == "sleep") sleepMode.onEnter(radar);
@@ -251,6 +299,7 @@ static void handleDisplayMessage(const String &message) {
         slot.text = item["text"] | "";
         slot.font = item["font"] | "medium";
         slot.scroll = item["scroll"] | false;
+        slot.center = item["center"] | false;
         if (slot.text.length()) slots.push_back(slot);
     }
     display.render(slots, brightness, doc["line_count"] | 2);

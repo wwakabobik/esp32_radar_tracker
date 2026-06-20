@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from config import WEB_HOST, WEB_PORT
 from hub import HubDaemon
-from web.routes import dashboard, display, gestures, sensor, settings
+from web.routes import ai, dashboard, display, gestures, sensor, settings
 
 
 class LayoutItem(BaseModel):
@@ -26,6 +26,7 @@ def create_app(daemon: HubDaemon) -> FastAPI:
     app.state.web_port = WEB_PORT
 
     app.include_router(dashboard.router)
+    app.include_router(ai.router)
     app.include_router(display.router)
     app.include_router(gestures.router)
     app.include_router(sensor.router)

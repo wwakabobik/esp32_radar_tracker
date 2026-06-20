@@ -41,6 +41,7 @@ class MediaController:
         self.last_gesture_ts: float | None = None
         self._last_fetch = 0.0
         self._position_at_fetch = 0.0
+        self._last_next_mono = 0.0
 
     def format_track_display(self) -> str:
         title = self.track_title.strip()
@@ -71,9 +72,25 @@ class MediaController:
         self.last_gesture = f"{gesture}:{value}"
         self.last_gesture_ts = float(ts) if ts is not None else time.time()
         backend = await get_setting("media_backend", "spotify")
+        debounce_ms = int(await get_setting("gesture_debounce_ms", "2500") or 2500)
+        debounce_sec = max(0.3, debounce_ms / 1000.0)
 
-        if gesture == "next":
+        if gesture == "vol":
+            if (await get_setting("gesture_ml_vol", "0")) != "1":
+                return
+            await self._set_volume(backend, int(value))
+        elif gesture == "next":
+            now = time.monotonic()
+            if now - self._last_next_mono < debounce_sec:
+                return
+            self._last_next_mono = now
             await self._next_track(backend)
+        elif gesture == "prev":
+            now = time.monotonic()
+            if now - self._last_next_mono < debounce_sec:
+                return
+            self._last_next_mono = now
+            await self._prev_track(backend)
         await self.refresh_track(force=True)
 
     async def _next_track(self, backend: str) -> None:
@@ -84,6 +101,24 @@ class MediaController:
             )
         else:
             await self._media_key(124)
+
+    async def _prev_track(self, backend: str) -> None:
+        if backend == "spotify":
+            await self._osascript(
+                'tell application "Spotify" to play previous track',
+                fallback_key=123,
+            )
+        else:
+            await self._media_key(123)
+
+    async def _set_volume(self, backend: str, value: int) -> None:
+        level = max(0, min(100, value))
+        if backend == "spotify":
+            await self._osascript(f'tell application "Spotify" to set sound volume to {level}')
+        else:
+            await self._osascript(
+                f'tell application "System Events" to set volume output volume to {level}'
+            )
 
     async def refresh_track(self, *, force: bool = False) -> None:
         now = time.monotonic()

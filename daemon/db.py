@@ -42,6 +42,14 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS ai_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    mode TEXT NOT NULL,
+    state TEXT NOT NULL,
+    confidence REAL
+);
+
 CREATE TABLE IF NOT EXISTS display_layout (
     slot INTEGER PRIMARY KEY,
     widget TEXT NOT NULL
@@ -97,6 +105,53 @@ async def insert_radar_sample(payload: dict) -> None:
             ),
         )
         await db.commit()
+
+
+async def insert_ai_state(payload: dict) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO ai_states(ts, mode, state, confidence)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                payload.get("ts", datetime.now(timezone.utc).timestamp()),
+                payload.get("mode", "work"),
+                payload.get("state", "unknown"),
+                payload.get("confidence"),
+            ),
+        )
+        await db.commit()
+
+
+async def get_ai_timeline(since_ts: float) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT ts, mode, state, confidence
+            FROM ai_states
+            WHERE ts >= ?
+            ORDER BY ts ASC
+            """,
+            (since_ts,),
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+async def count_fatigue_events_today() -> int:
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*) FROM ai_states
+            WHERE ts >= ? AND state = 'static_fatigue'
+            """,
+            (start,),
+        )
+        row = await cursor.fetchone()
+        return int(row[0]) if row else 0
 
 
 async def get_setting(key: str, default: str | None = None) -> str | None:
@@ -269,6 +324,41 @@ async def append_sleep_radar_sample(night_date: str, sample: dict) -> None:
 
 
 PHASE_BUCKET_SEC = 300
+BREATH_MIN_BPM = 12.0
+BREATH_MAX_BPM = 20.0
+
+
+def compute_breath_rate(radar_samples: list[dict]) -> float | None:
+    """Estimate breaths/min from stationary energy zero-crossings."""
+    if len(radar_samples) < 30:
+        return None
+    samples = sorted(radar_samples, key=lambda s: float(s.get("ts", 0)))
+    energies = [float(s.get("s_energy", 0)) for s in samples]
+    if not energies:
+        return None
+    mean_e = sum(energies) / len(energies)
+    crossings = 0
+    above = energies[0] >= mean_e
+    for value in energies[1:]:
+        now_above = value >= mean_e
+        if now_above != above:
+            crossings += 1
+        above = now_above
+    duration_sec = float(samples[-1].get("ts", 0)) - float(samples[0].get("ts", 0))
+    if duration_sec <= 0:
+        return None
+    bpm = (crossings / 2.0) / duration_sec * 60.0
+    if BREATH_MIN_BPM <= bpm <= BREATH_MAX_BPM:
+        return round(bpm, 1)
+    return None
+
+
+def _breath_stability_score(radar_samples: list[dict]) -> float:
+    bpm = compute_breath_rate(radar_samples)
+    if bpm is None:
+        return 0.5
+    ideal = 16.0
+    return max(0.0, 1.0 - abs(bpm - ideal) / 8.0)
 
 
 def _sleep_energy_baseline(radar_samples: list[dict], sleep_start: float) -> float:
@@ -352,6 +442,8 @@ def compute_sleep_phases(
         segments.append({"start": bucket_start, "end": bucket_end, "phase": phase})
 
     total = sum(counts.values()) or 1.0
+    breath_rate = compute_breath_rate(radar_samples)
+    breath_stability = _breath_stability_score(radar_samples)
     return {
         "segments": segments,
         "deep_pct": round(100 * counts["deep"] / total),
@@ -360,6 +452,8 @@ def compute_sleep_phases(
         "deep_hours": round(counts["deep"] / 3600, 2),
         "light_hours": round(counts["light"] / 3600, 2),
         "awake_hours": round(counts["awake"] / 3600, 2),
+        "breath_rate_bpm": breath_rate,
+        "breath_stability": round(breath_stability, 2),
     }
 
 
@@ -553,6 +647,8 @@ async def get_sleep_week() -> list[dict]:
                         "deep_hours": phases["deep_hours"],
                         "light_hours": phases["light_hours"],
                         "awake_hours": phases["awake_hours"],
+                        "breath_rate_bpm": phases.get("breath_rate_bpm"),
+                        "breath_stability": phases.get("breath_stability"),
                     },
                     "phase_segments": phases["segments"] if row["sleep_end"] else [],
                 }
