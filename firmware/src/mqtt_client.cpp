@@ -82,18 +82,21 @@ void MqttHub::setCurrentMode(const char *mode) {
 }
 
 void MqttHub::begin(ModeHandler modeHandler, OtaHandler otaHandler, DisplayHandler displayHandler,
-                    ConfigHandler configHandler, SyncAckHandler syncAckHandler) {
+                    ConfigHandler configHandler, SyncAckHandler syncAckHandler,
+                    AutonomousHandler autonomousHandler) {
     instance_ = this;
     modeHandler_ = modeHandler;
     otaHandler_ = otaHandler;
     displayHandler_ = displayHandler;
     configHandler_ = configHandler;
     syncAckHandler_ = syncAckHandler;
+    autonomousHandler_ = autonomousHandler;
+    hubOnline_ = false;
     loadHubAckId();
 
     wifiClient_.setTimeout(MQTT_CONNECT_TIMEOUT_SEC);
     client_.setSocketTimeout(MQTT_CONNECT_TIMEOUT_SEC);
-    client_.setKeepAlive(30);
+    client_.setKeepAlive(5);
     client_.setCallback(staticCallback);
     client_.setBufferSize(4096);
 
@@ -164,6 +167,7 @@ void MqttHub::ensureMqtt() {
     client_.setServer(hubEndpoint.mqttHost, hubEndpoint.mqttPort);
     Serial.printf("Connecting MQTT %s:%d...\n", hubEndpoint.mqttHost.toString().c_str(), hubEndpoint.mqttPort);
     if (client_.connect(MQTT_CLIENT_ID)) {
+        onHubConnected();
         mqttFailStreak_ = 0;
         lastSyncAttempt_ = 0;
         publishMode(currentMode_.c_str(), 0);
@@ -178,13 +182,56 @@ void MqttHub::ensureMqtt() {
     }
 }
 
+void MqttHub::onHubConnected() {
+    hubOnline_ = true;
+    publishFailStreak_ = 0;
+    lastHubOkMs_ = millis();
+}
+
+void MqttHub::enterAutonomousMode() {
+    const bool wasOnline = hubOnline_ || client_.connected();
+    hubOnline_ = false;
+    publishFailStreak_ = 0;
+    if (client_.connected()) client_.disconnect();
+    wifiClient_.stop();
+    if (wasOnline) {
+        Serial.println("Autonomous mode — hub unreachable");
+        if (autonomousHandler_) autonomousHandler_();
+    }
+}
+
+void MqttHub::markHubOk() {
+    lastHubOkMs_ = millis();
+    publishFailStreak_ = 0;
+    hubOnline_ = true;
+}
+
+void MqttHub::markPublishFailed() {
+    const unsigned long now = millis();
+    if (now - lastPublishFailMs_ > 2000) publishFailStreak_ = 0;
+    lastPublishFailMs_ = now;
+    publishFailStreak_++;
+    if (publishFailStreak_ >= 2) enterAutonomousMode();
+}
+
+bool MqttHub::publishRaw(const char *topic, const char *payload, bool retained) {
+    if (!hubOnline_ || !client_.connected()) return false;
+    const bool ok = retained ? client_.publish(topic, payload, true) : client_.publish(topic, payload);
+    if (!ok) {
+        markPublishFailed();
+        return false;
+    }
+    markHubOk();
+    return true;
+}
+
 void MqttHub::flushSync() {
     lastSyncAttempt_ = 0;
     syncPendingEvents();
 }
 
 void MqttHub::syncPendingEvents() {
-    if (!client_.connected()) return;
+    if (!hubOnline_ || !client_.connected()) return;
     if (inflightToId_ > hubAckId_) return;
     if (gEventLog.pendingAfter(hubAckId_) == 0) return;
 
@@ -201,7 +248,7 @@ void MqttHub::syncPendingEvents() {
         Serial.println("Sync batch too large");
         return;
     }
-    if (client_.publish(MQTT_TOPIC_SYNC_EVENTS, payload)) {
+    if (publishRaw(MQTT_TOPIC_SYNC_EVENTS, payload)) {
         inflightToId_ = lastReadId;
         Serial.printf("Sync published %u events (%u..%u)\n", events.size(), hubAckId_ + 1, lastReadId);
     }
@@ -223,12 +270,24 @@ void MqttHub::handleSyncAck(const String &message) {
 
 void MqttHub::loop() {
     ensureWifi();
-    client_.loop();
+
+    if (client_.connected()) {
+        if (!client_.loop()) {
+            enterAutonomousMode();
+        }
+    } else if (hubOnline_) {
+        hubOnline_ = false;
+    }
+
     ensureMqtt();
 
-    const unsigned long now = millis();
-    if (!client_.connected()) return;
+    if (!hubOnline_ || !client_.connected()) return;
 
+    const unsigned long now = millis();
+    if (now - lastHubOkMs_ > 5000 && now - lastProbeMs_ > 5000) {
+        lastProbeMs_ = now;
+        publishStatus(currentMode_.c_str());
+    }
     if (now - lastNtpAttemptMs_ >= 60000) {
         lastNtpAttemptMs_ = now;
         TimeSync::trySync();
@@ -244,7 +303,7 @@ void MqttHub::loop() {
 }
 
 void MqttHub::publishRadar(const RadarReading &reading, uint8_t aiState, uint8_t aiConfidence) {
-    if (!client_.connected()) return;
+    if (!hubOnline_) return;
     StaticJsonDocument<512> doc;
     doc["dist"] = reading.dist;
     doc["gesture_dist"] = reading.dist;
@@ -264,11 +323,11 @@ void MqttHub::publishRadar(const RadarReading &reading, uint8_t aiState, uint8_t
     if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
     char payload[512];
     const size_t n = serializeJson(doc, payload, sizeof(payload));
-    if (n > 0) client_.publish(MQTT_TOPIC_RADAR, payload);
+    if (n > 0) publishRaw(MQTT_TOPIC_RADAR, payload);
 }
 
 void MqttHub::publishRadarRaw(const RadarReading &reading) {
-    if (!client_.connected()) return;
+    if (!hubOnline_) return;
     StaticJsonDocument<768> doc;
     doc["dist"] = reading.dist;
     doc["presence_dist"] = reading.presence_dist;
@@ -289,11 +348,11 @@ void MqttHub::publishRadarRaw(const RadarReading &reading) {
     if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
     char payload[768];
     const size_t n = serializeJson(doc, payload, sizeof(payload));
-    if (n > 0) client_.publish(MQTT_TOPIC_RADAR_RAW, payload);
+    if (n > 0) publishRaw(MQTT_TOPIC_RADAR_RAW, payload);
 }
 
 void MqttHub::publishAiState(const char *mode, const char *state, uint8_t confidence) {
-    if (!client_.connected() || !mode || !state) return;
+    if (!hubOnline_ || !mode || !state) return;
     StaticJsonDocument<192> doc;
     doc["mode"] = mode;
     doc["state"] = state;
@@ -301,30 +360,31 @@ void MqttHub::publishAiState(const char *mode, const char *state, uint8_t confid
     if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
     char payload[192];
     serializeJson(doc, payload, sizeof(payload));
-    client_.publish(MQTT_TOPIC_AI_STATE, payload);
+    publishRaw(MQTT_TOPIC_AI_STATE, payload);
 }
 
 void MqttHub::publishButton(uint8_t id, const char *event, uint32_t eventId) {
-    if (!client_.connected()) return;
+    if (!hubOnline_) return;
     StaticJsonDocument<128> doc;
     doc["id"] = id;
     doc["event"] = event;
     if (eventId) doc["eid"] = eventId;
     char payload[128];
     serializeJson(doc, payload, sizeof(payload));
-    client_.publish(MQTT_TOPIC_BUTTON, payload);
+    publishRaw(MQTT_TOPIC_BUTTON, payload);
 }
 
 void MqttHub::publishDebug(const char *kind, const char *payload) {
-    if (!client_.connected() || !kind || !payload) return;
+    if (!hubOnline_ || !kind || !payload) return;
     char topic[48];
     snprintf(topic, sizeof(topic), "%s/%s", MQTT_TOPIC_DEBUG, kind);
-    const bool ok = client_.publish(topic, payload);
-    if (!ok) Serial.printf("MQTT debug publish failed (%s)\n", topic);
+    if (!publishRaw(topic, payload)) {
+        Serial.printf("MQTT debug publish failed (%s)\n", topic);
+    }
 }
 
 void MqttHub::publishGesture(const char *type, int value, uint32_t eventId) {
-    if (!client_.connected()) return;
+    if (!hubOnline_) return;
     StaticJsonDocument<128> doc;
     doc["type"] = type;
     doc["value"] = value;
@@ -332,11 +392,11 @@ void MqttHub::publishGesture(const char *type, int value, uint32_t eventId) {
     if (TimeSync::ready()) doc["ts"] = TimeSync::nowUnix();
     char payload[128];
     serializeJson(doc, payload, sizeof(payload));
-    client_.publish(MQTT_TOPIC_GESTURE, payload);
+    publishRaw(MQTT_TOPIC_GESTURE, payload);
 }
 
 void MqttHub::publishStatus(const char *mode) {
-    if (!client_.connected()) return;
+    if (!hubOnline_) return;
     StaticJsonDocument<384> doc;
     doc["mode"] = mode;
     doc["ip"] = WiFi.localIP().toString();
@@ -355,21 +415,22 @@ void MqttHub::publishStatus(const char *mode) {
     doc["btn_active_low"] = btn.activeLow;
     char payload[384];
     serializeJson(doc, payload, sizeof(payload));
-    client_.publish(MQTT_TOPIC_STATUS, payload);
+    publishRaw(MQTT_TOPIC_STATUS, payload);
 }
 
 void MqttHub::publishMode(const char *mode, uint32_t eventId) {
     currentMode_ = mode;
-    if (!client_.connected()) return;
+    if (!hubOnline_ || !client_.connected()) return;
     StaticJsonDocument<128> doc;
     doc["mode"] = mode;
     if (eventId) doc["eid"] = eventId;
     char payload[128];
     serializeJson(doc, payload, sizeof(payload));
-    client_.publish(MQTT_TOPIC_MODE, payload, true);
+    publishRaw(MQTT_TOPIC_MODE, payload, true);
 }
 
 void MqttHub::onMessage(char *topic, byte *payload, unsigned int length) {
+    if (!hubOnline_) return;
     String message;
     message.reserve(length + 1);
     for (unsigned int i = 0; i < length; ++i) message += static_cast<char>(payload[i]);
@@ -383,14 +444,17 @@ void MqttHub::onMessage(char *topic, byte *payload, unsigned int length) {
         if (mode != currentMode_) {
             publishMode(currentMode_.c_str(), 0);
         }
+        markHubOk();
         if (modeHandler_) modeHandler_(mode);
         return;
     }
     if (String(topic) == MQTT_TOPIC_DISPLAY) {
+        markHubOk();
         if (displayHandler_) displayHandler_(message);
         return;
     }
     if (String(topic) == MQTT_TOPIC_OTA) {
+        markHubOk();
         StaticJsonDocument<256> doc;
         if (deserializeJson(doc, message) == DeserializationError::Ok && doc["url"].is<const char *>()) {
             if (otaHandler_) otaHandler_(doc["url"].as<const char *>());
@@ -398,10 +462,12 @@ void MqttHub::onMessage(char *topic, byte *payload, unsigned int length) {
         return;
     }
     if (String(topic) == MQTT_TOPIC_SYNC_ACK) {
+        markHubOk();
         handleSyncAck(message);
         return;
     }
     if (String(topic) == MQTT_TOPIC_CONFIG) {
+        markHubOk();
         if (configHandler_) configHandler_(message);
     }
 }

@@ -15,11 +15,14 @@ public:
     using DisplayHandler = std::function<void(const String &)>;
     using ConfigHandler = std::function<void(const String &)>;
     using SyncAckHandler = std::function<void(uint32_t ackId)>;
+    using AutonomousHandler = std::function<void()>;
 
     void begin(ModeHandler modeHandler, OtaHandler otaHandler, DisplayHandler displayHandler,
-               ConfigHandler configHandler = nullptr, SyncAckHandler syncAckHandler = nullptr);
+               ConfigHandler configHandler = nullptr, SyncAckHandler syncAckHandler = nullptr,
+               AutonomousHandler autonomousHandler = nullptr);
     void loop();
     bool connected() { return client_.connected(); }
+    bool hubOnline() const { return hubOnline_; }
     void setCurrentMode(const char *mode);
     const String &currentMode() const { return currentMode_; }
     void publishRadar(const RadarReading &reading, uint8_t aiState = 255, uint8_t aiConfidence = 0);
@@ -40,11 +43,17 @@ private:
     DisplayHandler displayHandler_;
     ConfigHandler configHandler_;
     SyncAckHandler syncAckHandler_;
+    AutonomousHandler autonomousHandler_;
+    bool hubOnline_ = false;
+    uint8_t publishFailStreak_ = 0;
+    unsigned long lastHubOkMs_ = 0;
+    unsigned long lastPublishFailMs_ = 0;
     unsigned long lastHeartbeat_ = 0;
     unsigned long lastSyncAttempt_ = 0;
     unsigned long lastMqttAttemptMs_ = 0;
     unsigned long lastWifiAttemptMs_ = 0;
     unsigned long lastNtpAttemptMs_ = 0;
+    unsigned long lastProbeMs_ = 0;
     uint32_t hubAckId_ = 0;
     uint32_t inflightToId_ = 0;
     String currentMode_ = "work";
@@ -57,6 +66,11 @@ private:
     void loadHubAckId();
     void saveHubAckId();
     void onMessage(char *topic, byte *payload, unsigned int length);
+    void onHubConnected();
+    void enterAutonomousMode();
+    void markHubOk();
+    void markPublishFailed();
+    bool publishRaw(const char *topic, const char *payload, bool retained = false);
     static void staticCallback(char *topic, byte *payload, unsigned int length);
     static MqttHub *instance_;
 };
