@@ -88,7 +88,7 @@ double TimeSync::nowUnix() {
 }
 
 String TimeSync::formatClockLocal() {
-    if (!synced_ || !tzKnown_) return String("--:--");
+    if (!synced_) return String("--:--");
     const time_t t = static_cast<time_t>(nowUnix() + utcOffsetSec_);
     struct tm timeinfo {};
     if (!gmtime_r(&t, &timeinfo)) return String("--:--");
