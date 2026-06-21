@@ -13,7 +13,6 @@ MqttHub *MqttHub::instance_ = nullptr;
 
 static HubDiscovery discovery;
 static HubEndpoint hubEndpoint;
-static unsigned long lastDiscoveryAttempt_ = 0;
 static uint8_t mqttFailStreak_ = 0;
 
 static bool fallbackHostConfigured() {
@@ -30,28 +29,34 @@ static bool applyFallbackHost(HubEndpoint &endpoint) {
     return true;
 }
 
-static bool resolveHubEndpoint(bool forceDiscover) {
-    if (!forceDiscover && hubEndpoint.valid) return true;
+static bool resolveHubEndpointCached(HubEndpoint &endpoint) {
+    if (endpoint.valid) return true;
 
     HubEndpoint cached;
-    if (!forceDiscover && discovery.loadCached(cached)) {
-        hubEndpoint = cached;
-        Serial.printf("Hub cache: %s:%d\n", hubEndpoint.mqttHost.toString().c_str(), hubEndpoint.mqttPort);
+    if (discovery.loadCached(cached)) {
+        endpoint = cached;
+        Serial.printf("Hub cache: %s:%d\n", endpoint.mqttHost.toString().c_str(), endpoint.mqttPort);
         return true;
     }
 
-    if (discovery.discover(hubEndpoint)) {
-        discovery.saveCached(hubEndpoint);
+    if (applyFallbackHost(endpoint)) {
+        Serial.printf("Hub fallback: %s:%d\n", endpoint.mqttHost.toString().c_str(), endpoint.mqttPort);
         return true;
     }
 
-    if (applyFallbackHost(hubEndpoint)) {
-        Serial.printf("Hub fallback: %s:%d\n", hubEndpoint.mqttHost.toString().c_str(), hubEndpoint.mqttPort);
-        return true;
-    }
-
-    hubEndpoint.valid = false;
+    endpoint.valid = false;
     return false;
+}
+
+static bool resolveHubEndpointBoot(HubEndpoint &endpoint) {
+    if (resolveHubEndpointCached(endpoint)) return true;
+
+    if (discovery.discover(endpoint)) {
+        discovery.saveCached(endpoint);
+        return true;
+    }
+
+    return applyFallbackHost(endpoint);
 }
 
 void MqttHub::staticCallback(char *topic, byte *payload, unsigned int length) {
@@ -77,29 +82,37 @@ void MqttHub::setCurrentMode(const char *mode) {
 }
 
 void MqttHub::begin(ModeHandler modeHandler, OtaHandler otaHandler, DisplayHandler displayHandler,
-                    ConfigHandler configHandler) {
+                    ConfigHandler configHandler, SyncAckHandler syncAckHandler) {
     instance_ = this;
     modeHandler_ = modeHandler;
     otaHandler_ = otaHandler;
     displayHandler_ = displayHandler;
     configHandler_ = configHandler;
+    syncAckHandler_ = syncAckHandler;
     loadHubAckId();
+
+    wifiClient_.setTimeout(MQTT_CONNECT_TIMEOUT_SEC);
+    client_.setSocketTimeout(MQTT_CONNECT_TIMEOUT_SEC);
+    client_.setKeepAlive(30);
+    client_.setCallback(staticCallback);
+    client_.setBufferSize(4096);
+
     WiFi.setHostname(HOSTNAME);
     WiFi.mode(WIFI_STA);
     Serial.printf("Connecting WiFi %s...\n", WIFI_SSID);
     WiFi.begin(WIFI_SSID, WIFI_PASS);
     const unsigned long wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 20000) {
-        delay(250);
+    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 15000) {
+        delay(100);
     }
     if (WiFi.status() == WL_CONNECTED) {
         Serial.printf("WiFi OK: %s\n", WiFi.localIP().toString().c_str());
         TimeSync::ensure();
+        resolveHubEndpointBoot(hubEndpoint);
     } else {
-        Serial.println("WiFi failed");
+        Serial.println("WiFi failed — continuing offline");
     }
-    client_.setCallback(staticCallback);
-    client_.setBufferSize(4096);
+
     ensureMqtt();
 }
 
@@ -120,6 +133,12 @@ void MqttHub::subscribeTopics() {
     client_.subscribe(MQTT_TOPIC_CONFIG);
 }
 
+unsigned long mqttRetryDelayMs() {
+    if (mqttFailStreak_ <= 1) return MQTT_RETRY_MS;
+    if (mqttFailStreak_ <= 5) return MQTT_RETRY_MS * 2;
+    return MQTT_RETRY_MAX_MS;
+}
+
 void MqttHub::ensureMqtt() {
     if (WiFi.status() != WL_CONNECTED) return;
     if (client_.connected()) {
@@ -128,7 +147,8 @@ void MqttHub::ensureMqtt() {
     }
 
     const unsigned long now = millis();
-    if (lastMqttAttemptMs_ != 0 && now - lastMqttAttemptMs_ < 3000) return;
+    const unsigned long retryMs = mqttRetryDelayMs();
+    if (lastMqttAttemptMs_ != 0 && now - lastMqttAttemptMs_ < retryMs) return;
     lastMqttAttemptMs_ = now;
 
     if (now - lastNtpAttemptMs_ >= 60000) {
@@ -136,16 +156,14 @@ void MqttHub::ensureMqtt() {
         TimeSync::trySync();
     }
 
-    if (!hubEndpoint.valid) {
-        if (!resolveHubEndpoint(false)) {
-            return;
-        }
+    if (!resolveHubEndpointCached(hubEndpoint)) {
+        Serial.println("Hub endpoint unknown — skip MQTT (no cache/fallback)");
+        return;
     }
 
     client_.setServer(hubEndpoint.mqttHost, hubEndpoint.mqttPort);
     Serial.printf("Connecting MQTT %s:%d...\n", hubEndpoint.mqttHost.toString().c_str(), hubEndpoint.mqttPort);
     if (client_.connect(MQTT_CLIENT_ID)) {
-        connectedAtMs_ = now;
         mqttFailStreak_ = 0;
         lastSyncAttempt_ = 0;
         publishMode(currentMode_.c_str(), 0);
@@ -155,7 +173,8 @@ void MqttHub::ensureMqtt() {
         Serial.printf("MQTT connected, pending events=%u\n", gEventLog.pendingAfter(hubAckId_));
     } else {
         mqttFailStreak_++;
-        Serial.printf("MQTT failed rc=%d (streak=%d)\n", client_.state(), mqttFailStreak_);
+        Serial.printf("MQTT failed rc=%d (streak=%d, retry=%lums)\n", client_.state(), mqttFailStreak_,
+                      retryMs);
     }
 }
 
@@ -199,6 +218,7 @@ void MqttHub::handleSyncAck(const String &message) {
     saveHubAckId();
     gEventLog.ackThrough(hubAckId_);
     Serial.printf("Sync ack through %u, pending=%u\n", hubAckId_, gEventLog.pendingAfter(hubAckId_));
+    if (syncAckHandler_) syncAckHandler_(ackId);
 }
 
 void MqttHub::loop() {
@@ -207,19 +227,19 @@ void MqttHub::loop() {
     ensureMqtt();
 
     const unsigned long now = millis();
-    if (client_.connected()) {
-        if (now - lastNtpAttemptMs_ >= 60000) {
-            lastNtpAttemptMs_ = now;
-            TimeSync::trySync();
-        }
-        if (now - lastSyncAttempt_ >= SYNC_INTERVAL_MS) {
-            lastSyncAttempt_ = now;
-            syncPendingEvents();
-        }
-        if (now - lastHeartbeat_ >= HEARTBEAT_INTERVAL_MS) {
-            publishStatus(currentMode_.c_str());
-            lastHeartbeat_ = now;
-        }
+    if (!client_.connected()) return;
+
+    if (now - lastNtpAttemptMs_ >= 60000) {
+        lastNtpAttemptMs_ = now;
+        TimeSync::trySync();
+    }
+    if (now - lastSyncAttempt_ >= SYNC_INTERVAL_MS) {
+        lastSyncAttempt_ = now;
+        syncPendingEvents();
+    }
+    if (now - lastHeartbeat_ >= HEARTBEAT_INTERVAL_MS) {
+        publishStatus(currentMode_.c_str());
+        lastHeartbeat_ = now;
     }
 }
 
@@ -360,11 +380,9 @@ void MqttHub::onMessage(char *topic, byte *payload, unsigned int length) {
         if (deserializeJson(doc, message) == DeserializationError::Ok && doc["mode"].is<const char *>()) {
             mode = doc["mode"].as<const char *>();
         }
-        if (connectedAtMs_ && millis() - connectedAtMs_ < 3000 && mode != currentMode_) {
+        if (mode != currentMode_) {
             publishMode(currentMode_.c_str(), 0);
-            return;
         }
-        currentMode_ = mode;
         if (modeHandler_) modeHandler_(mode);
         return;
     }
