@@ -20,7 +20,7 @@
 #endif
 
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "0.6.3"
+#define FIRMWARE_VERSION "0.7.0"
 #endif
 
 #define MQTT_CONNECT_TIMEOUT_SEC 1

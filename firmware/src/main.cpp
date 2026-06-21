@@ -76,8 +76,7 @@ void setup() {
         [](const String &url) { Ota::performUpdate(url); },
         [](const String &message) { handleDisplayMessage(message); },
         [](const String &message) { handleConfigMessage(message); },
-        [](uint32_t) { localModeAuthorityUntilMs = 0; },
-        []() { renderLocalDisplay(); });
+        [](uint32_t) { localModeAuthorityUntilMs = 0; });
 
     applyMode(ModeStore::load(), false);
     renderLocalDisplay();
@@ -153,7 +152,13 @@ void loop() {
     buttons.loop();
     display.loop();
 
-    const int pollLimit = currentMode == "media" ? MEDIA_RADAR_POLLS : 1;
+    if (mqtt.takeAutonomousNotify()) {
+        renderLocalDisplay();
+    }
+    mqtt.processInbound();
+
+    const int pollLimit =
+        mqtt.hubOnline() && currentMode == "media" ? MEDIA_RADAR_POLLS : 1;
     for (int i = 0; i < pollLimit; ++i) {
         RadarReading reading{};
         if (!radar.poll(reading)) break;
@@ -169,8 +174,6 @@ void loop() {
             renderLocalDisplay();
         }
     }
-
-    mqtt.loop();
 }
 
 static void applySleepDisplay() {
