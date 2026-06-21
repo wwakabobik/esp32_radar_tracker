@@ -37,10 +37,13 @@ static unsigned long lastRadarPublish = 0;
 static unsigned long lastNextGestureMs = 0;
 static unsigned long lastAiStatePublish = 0;
 static unsigned long lastLocalDisplayMs = 0;
+static unsigned long localModeAuthorityUntilMs = 0;
+static bool lastMqttConnected = false;
 static String lastPublishedAiState;
 
 static void applyMode(const String &mode, bool fromHub = false);
 static void cycleMode();
+static void handleHubModeRequest(const String &mode);
 static void handleDisplayMessage(const String &message);
 static void handleConfigMessage(const String &message);
 static void logModeChange(const String &mode);
@@ -70,13 +73,14 @@ void setup() {
     buttons.begin(handleButton);
 
     mqtt.begin(
-        [](const String &mode) { applyMode(mode, true); },
+        [](const String &mode) { handleHubModeRequest(mode); },
         [](const String &url) { Ota::performUpdate(url); },
         [](const String &message) { handleDisplayMessage(message); },
-        [](const String &message) { handleConfigMessage(message); }
-    );
+        [](const String &message) { handleConfigMessage(message); },
+        [](uint32_t) { localModeAuthorityUntilMs = 0; });
 
     applyMode(ModeStore::load(), false);
+    renderLocalDisplay();
 }
 
 static uint8_t aiStateWireId(AiState state) {
@@ -158,7 +162,13 @@ void loop() {
 
     if (gButtonConfig.current().gpioProbe) gpioProbe.loop(mqtt);
 
-    if (!mqtt.connected()) {
+    const bool mqttUp = mqtt.connected();
+    if (lastMqttConnected && !mqttUp) {
+        renderLocalDisplay();
+    }
+    lastMqttConnected = mqttUp;
+
+    if (!mqttUp) {
         const unsigned long now = millis();
         if (!display.overlayActive() && now - lastLocalDisplayMs >= 1000) {
             lastLocalDisplayMs = now;
@@ -197,6 +207,16 @@ static void handleConfigMessage(const String &message) {
     radar.setGestureProfile(currentMode == "media");
 }
 
+static void handleHubModeRequest(const String &mode) {
+    if (mode != "work" && mode != "sleep" && mode != "media") return;
+    if (mode == currentMode) return;
+    if (localModeAuthorityUntilMs != 0 && millis() < localModeAuthorityUntilMs) {
+        mqtt.publishMode(currentMode.c_str(), 0);
+        return;
+    }
+    applyMode(mode, true);
+}
+
 static void logModeChange(const String &mode) {
     StaticJsonDocument<64> data;
     data["mode"] = mode;
@@ -230,6 +250,7 @@ static void applyMode(const String &mode, bool fromHub) {
     radar.setGestureProfile(currentMode == "media");
 
     if (!fromHub) {
+        localModeAuthorityUntilMs = millis() + 600000UL;
         logModeChange(currentMode);
         display.showOverlay("Mode", currentMode.c_str());
     } else {
@@ -299,6 +320,7 @@ static void handleButton(const ButtonMessage &msg) {
 }
 
 static void handleDisplayMessage(const String &message) {
+    if (!mqtt.connected()) return;
     StaticJsonDocument<1024> doc;
     if (deserializeJson(doc, message) != DeserializationError::Ok) return;
     if (!doc["widgets"].is<JsonArray>()) return;
@@ -343,11 +365,6 @@ static void renderLocalDisplay() {
         clock.font = "xlarge";
         clock.center = true;
         slots.push_back(clock);
-        DisplaySlot track;
-        track.pos = 1;
-        track.text = "hub offline";
-        track.font = "medium";
-        slots.push_back(track);
         lineCount = 2;
     } else if (currentMode == "sleep") {
         DisplaySlot slot;
