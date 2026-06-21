@@ -22,6 +22,7 @@ public:
     void setEnabled(bool enabled);
     void setModeLetter(const char *mode);
     void loop();
+    bool overlayActive() const { return overlayUntil_ != 0 && millis() < overlayUntil_; }
 
 private:
     static constexpr int kScrollMaxWidth = 106;

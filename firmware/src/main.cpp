@@ -36,6 +36,7 @@ static String sleepDisplayMode = "off";
 static unsigned long lastRadarPublish = 0;
 static unsigned long lastNextGestureMs = 0;
 static unsigned long lastAiStatePublish = 0;
+static unsigned long lastLocalDisplayMs = 0;
 static String lastPublishedAiState;
 
 static void applyMode(const String &mode, bool fromHub = false);
@@ -46,6 +47,7 @@ static void logModeChange(const String &mode);
 static void handleButton(const ButtonMessage &msg);
 static void applySleepDisplay();
 static void publishAiStateIfChanged(const TinyMlResult &result);
+static void renderLocalDisplay();
 static uint8_t aiStateWireId(AiState state);
 
 void setup() {
@@ -144,9 +146,7 @@ static void handleRadarReading(const RadarReading &reading) {
 }
 
 void loop() {
-    mqtt.loop();
     buttons.loop();
-    if (gButtonConfig.current().gpioProbe) gpioProbe.loop(mqtt);
     display.loop();
 
     const int pollLimit = currentMode == "media" ? MEDIA_RADAR_POLLS : 1;
@@ -155,6 +155,18 @@ void loop() {
         if (!radar.poll(reading)) break;
         handleRadarReading(reading);
     }
+
+    if (gButtonConfig.current().gpioProbe) gpioProbe.loop(mqtt);
+
+    if (!mqtt.connected()) {
+        const unsigned long now = millis();
+        if (!display.overlayActive() && now - lastLocalDisplayMs >= 1000) {
+            lastLocalDisplayMs = now;
+            renderLocalDisplay();
+        }
+    }
+
+    mqtt.loop();
 }
 
 static void applySleepDisplay() {
@@ -203,6 +215,7 @@ static void applyMode(const String &mode, bool fromHub) {
 
     currentMode = mode;
     ModeStore::save(currentMode);
+    mqtt.setCurrentMode(currentMode.c_str());
     gTinyMl.setMode(currentMode.c_str());
     lastPublishedAiState = "";
 
@@ -222,6 +235,10 @@ static void applyMode(const String &mode, bool fromHub) {
     } else {
         mqtt.publishMode(currentMode.c_str(), 0);
         display.setModeLetter(currentMode.c_str());
+    }
+
+    if (!mqtt.connected()) {
+        renderLocalDisplay();
     }
 }
 
@@ -303,4 +320,44 @@ static void handleDisplayMessage(const String &message) {
         if (slot.text.length()) slots.push_back(slot);
     }
     display.render(slots, brightness, doc["line_count"] | 2);
+}
+
+static void renderLocalDisplay() {
+    if (currentMode == "sleep" && sleepDisplayMode == "off") return;
+
+    const String clockText = TimeSync::formatClockLocal();
+    std::vector<DisplaySlot> slots;
+    uint8_t lineCount = 1;
+
+    if (currentMode == "work") {
+        DisplaySlot slot;
+        slot.pos = 0;
+        slot.text = clockText;
+        slot.font = "xlarge";
+        slot.center = true;
+        slots.push_back(slot);
+    } else if (currentMode == "media") {
+        DisplaySlot clock;
+        clock.pos = 0;
+        clock.text = clockText;
+        clock.font = "xlarge";
+        clock.center = true;
+        slots.push_back(clock);
+        DisplaySlot track;
+        track.pos = 1;
+        track.text = "hub offline";
+        track.font = "medium";
+        slots.push_back(track);
+        lineCount = 2;
+    } else if (currentMode == "sleep") {
+        DisplaySlot slot;
+        slot.pos = 0;
+        slot.text = clockText;
+        slot.font = "large";
+        slot.center = true;
+        slots.push_back(slot);
+    }
+
+    if (slots.empty()) return;
+    display.render(slots, 255, lineCount);
 }

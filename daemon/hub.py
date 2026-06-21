@@ -47,6 +47,7 @@ class HubDaemon:
     def __init__(self) -> None:
         self.mode = "work"
         self.online = False
+        self.last_status_at: datetime | None = None
         self.last_status: dict = {}
         self.last_radar: dict = {}
         self.last_ai_state: dict = {}
@@ -162,6 +163,7 @@ class HubDaemon:
 
         if topic == TOPIC_STATUS:
             self.online = True
+            self.last_status_at = datetime.now(timezone.utc)
             status = json.loads(text)
             self.last_status = status
             mode = status.get("mode")
@@ -170,6 +172,10 @@ class HubDaemon:
                     await self.set_mode(mode)
                 elif mode in WORK_TRACKING_MODES:
                     await self.work.ensure_session()
+            pending = int(status.get("pending_events") or 0)
+            if pending:
+                logger.info("Device reconnected with %d pending events", pending)
+            return
 
     async def _handle_button(self, data: dict) -> None:
         btn_id = data.get("id")

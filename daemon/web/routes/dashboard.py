@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from aiomqtt import Client
 from fastapi import APIRouter, Request
@@ -20,12 +21,18 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 @router.get("/today")
 async def today_stats(request: Request) -> dict:
     daemon = request.app.state.daemon
+    online = daemon.online
+    if daemon.last_status_at is not None:
+        if datetime.now(timezone.utc) - daemon.last_status_at > timedelta(seconds=90):
+            online = False
+    elif not online:
+        online = False
     total = await get_today_work_seconds()
     from db import count_fatigue_events_today
 
     return {
         "mode": daemon.mode,
-        "online": daemon.online,
+        "online": online,
         "present": daemon.work.present,
         "fatigue": daemon.work.fatigue,
         "ai_state": daemon.work.ai_state,

@@ -19,6 +19,8 @@ public:
                ConfigHandler configHandler = nullptr);
     void loop();
     bool connected() { return client_.connected(); }
+    void setCurrentMode(const char *mode);
+    const String &currentMode() const { return currentMode_; }
     void publishRadar(const RadarReading &reading, uint8_t aiState = 255, uint8_t aiConfidence = 0);
     void publishRadarRaw(const RadarReading &reading);
     void publishAiState(const char *mode, const char *state, uint8_t confidence);
@@ -38,13 +40,17 @@ private:
     ConfigHandler configHandler_;
     unsigned long lastHeartbeat_ = 0;
     unsigned long lastSyncAttempt_ = 0;
+    unsigned long lastMqttAttemptMs_ = 0;
+    unsigned long lastWifiAttemptMs_ = 0;
+    unsigned long lastNtpAttemptMs_ = 0;
+    unsigned long connectedAtMs_ = 0;
     uint32_t hubAckId_ = 0;
     uint32_t inflightToId_ = 0;
     String currentMode_ = "work";
 
     void ensureWifi();
     void ensureMqtt();
-    void ensureTime();
+    void subscribeTopics();
     void syncPendingEvents();
     void handleSyncAck(const String &message);
     void loadHubAckId();
