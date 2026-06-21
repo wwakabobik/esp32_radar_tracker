@@ -10,5 +10,6 @@ bool ready();
 double nowUnix();
 int32_t utcOffsetSec();
 void setUtcOffsetSec(int32_t sec);
+void learnFromMacClock(const String &clockText);
 String formatClockLocal();
 }

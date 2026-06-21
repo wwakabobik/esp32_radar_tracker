@@ -51,6 +51,7 @@ static void applySleepDisplay();
 static void publishAiStateIfChanged(const TinyMlResult &result);
 static void renderLocalDisplay();
 static uint8_t aiStateWireId(AiState state);
+static void applyTimezoneFromJson(JsonObject doc);
 
 void setup() {
     Serial.begin(115200);
@@ -194,18 +195,32 @@ static void handleConfigMessage(const String &message) {
     gButtonConfig.applyFromJson(message.c_str());
     gAiConfig.applyFromJson(message.c_str());
     buttons.applyConfig();
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<1024> doc;
     if (deserializeJson(doc, message) == DeserializationError::Ok) {
         if (doc["sleep_display_mode"].is<const char *>()) {
             sleepDisplayMode = doc["sleep_display_mode"].as<const char *>();
             applySleepDisplay();
         }
-        if (doc["tz_offset_sec"].is<int>()) {
-            TimeSync::setUtcOffsetSec(doc["tz_offset_sec"].as<int32_t>());
-        }
+        applyTimezoneFromJson(doc.as<JsonObject>());
     }
     radar.setHighSensitivity(currentMode == "sleep");
     radar.setGestureProfile(currentMode == "media");
+}
+
+static void applyTimezoneFromJson(JsonObject doc) {
+    if (!doc["tz_offset_sec"].isNull()) {
+        TimeSync::setUtcOffsetSec(doc["tz_offset_sec"].as<int32_t>());
+        return;
+    }
+    if (!doc["widgets"].is<JsonArray>()) return;
+    for (JsonObject item : doc["widgets"].as<JsonArray>()) {
+        if ((item["pos"] | 0) != 0) continue;
+        const String text = item["text"] | "";
+        if (text.length()) {
+            TimeSync::learnFromMacClock(text);
+            return;
+        }
+    }
 }
 
 static void handleHubModeRequest(const String &mode) {
@@ -322,17 +337,17 @@ static void handleButton(const ButtonMessage &msg) {
 }
 
 static void handleDisplayMessage(const String &message) {
-    if (!mqtt.hubOnline()) return;
     StaticJsonDocument<1024> doc;
     if (deserializeJson(doc, message) != DeserializationError::Ok) return;
+
+    applyTimezoneFromJson(doc.as<JsonObject>());
+
+    if (!mqtt.hubOnline()) return;
     if (!doc["widgets"].is<JsonArray>()) return;
 
     if (doc["sleep_display_mode"].is<const char *>()) {
         sleepDisplayMode = doc["sleep_display_mode"].as<const char *>();
         applySleepDisplay();
-    }
-    if (doc["tz_offset_sec"].is<int>()) {
-        TimeSync::setUtcOffsetSec(doc["tz_offset_sec"].as<int32_t>());
     }
 
     const uint8_t brightness = doc["brightness"] | 0;
