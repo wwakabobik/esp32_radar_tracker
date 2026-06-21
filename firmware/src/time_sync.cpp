@@ -1,12 +1,54 @@
 #include "time_sync.h"
 
+#include <Preferences.h>
 #include <WiFi.h>
 #include <time.h>
 
+static const char *PREFS_NS = "phub";
+static const char *KEY_TZ_OFFSET = "tz_ofs";
+static const char *KEY_TZ_KNOWN = "tz_ok";
+
 static bool synced_ = false;
+static bool tzKnown_ = false;
 static double epochBase_ = 0;
 static unsigned long millisBase_ = 0;
 static unsigned long lastTryMs_ = 0;
+static int32_t utcOffsetSec_ = 0;
+
+void TimeSync::begin() {
+    Preferences prefs;
+    if (prefs.begin(PREFS_NS, true)) {
+        utcOffsetSec_ = prefs.getInt(KEY_TZ_OFFSET, 0);
+        if (prefs.isKey(KEY_TZ_KNOWN)) {
+            tzKnown_ = prefs.getBool(KEY_TZ_KNOWN, false);
+        } else if (prefs.isKey(KEY_TZ_OFFSET)) {
+            tzKnown_ = true;
+        }
+        prefs.end();
+    }
+    if (tzKnown_) {
+        Serial.printf("TZ offset loaded: %+d sec\n", utcOffsetSec_);
+    }
+}
+
+int32_t TimeSync::utcOffsetSec() { return utcOffsetSec_; }
+
+void TimeSync::setUtcOffsetSec(int32_t sec) {
+    if (sec < -43200 || sec > 50400) return;
+    const bool offsetChanged = sec != utcOffsetSec_;
+    const bool wasUnknown = !tzKnown_;
+    if (!offsetChanged && !wasUnknown) return;
+
+    utcOffsetSec_ = sec;
+    tzKnown_ = true;
+    Preferences prefs;
+    if (prefs.begin(PREFS_NS, false)) {
+        prefs.putInt(KEY_TZ_OFFSET, sec);
+        prefs.putBool(KEY_TZ_KNOWN, true);
+        prefs.end();
+    }
+    Serial.printf("TZ offset: %+d sec\n", sec);
+}
 
 bool TimeSync::trySync() {
     if (synced_) return true;
@@ -46,10 +88,10 @@ double TimeSync::nowUnix() {
 }
 
 String TimeSync::formatClockLocal() {
-    if (!synced_) return String("--:--");
-    const time_t t = static_cast<time_t>(nowUnix());
+    if (!synced_ || !tzKnown_) return String("--:--");
+    const time_t t = static_cast<time_t>(nowUnix() + utcOffsetSec_);
     struct tm timeinfo {};
-    if (!localtime_r(&t, &timeinfo)) return String("--:--");
+    if (!gmtime_r(&t, &timeinfo)) return String("--:--");
     char buf[8];
     snprintf(buf, sizeof(buf), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
     return String(buf);

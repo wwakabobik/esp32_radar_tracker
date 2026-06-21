@@ -4,6 +4,7 @@ from datetime import datetime
 
 from config import DISPLAY_FONTS, STANDUP_INTERVAL_MIN
 from db import get_display_layout, get_setting
+from tz_utils import tz_offset_sec
 
 SESSION_FLASH_SECONDS = 10
 
@@ -130,10 +131,12 @@ class DisplayEngine:
             widgets = []
         brightness = int(await get_setting("display_brightness", "255") or 255)
         sleep_display = await get_setting("sleep_display_mode", "off")
+        now = datetime.now()
         return {
             "brightness": max(10, min(255, brightness)),
             "sleep_display_mode": sleep_display,
             "line_count": line_count,
+            "tz_offset_sec": tz_offset_sec(now),
             "widgets": widgets,
         }
 

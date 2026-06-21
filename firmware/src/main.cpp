@@ -61,6 +61,7 @@ void setup() {
                   PIN_I2C_SDA, PIN_I2C_SCL, PIN_BTN_1, PIN_BTN_2);
 
     ModeStore::begin();
+    TimeSync::begin();
     gEventLog.begin();
     gRadarConfig.begin();
     gButtonConfig.begin();
@@ -199,6 +200,9 @@ static void handleConfigMessage(const String &message) {
             sleepDisplayMode = doc["sleep_display_mode"].as<const char *>();
             applySleepDisplay();
         }
+        if (doc["tz_offset_sec"].is<int>()) {
+            TimeSync::setUtcOffsetSec(doc["tz_offset_sec"].as<int32_t>());
+        }
     }
     radar.setHighSensitivity(currentMode == "sleep");
     radar.setGestureProfile(currentMode == "media");
@@ -326,6 +330,9 @@ static void handleDisplayMessage(const String &message) {
     if (doc["sleep_display_mode"].is<const char *>()) {
         sleepDisplayMode = doc["sleep_display_mode"].as<const char *>();
         applySleepDisplay();
+    }
+    if (doc["tz_offset_sec"].is<int>()) {
+        TimeSync::setUtcOffsetSec(doc["tz_offset_sec"].as<int32_t>());
     }
 
     const uint8_t brightness = doc["brightness"] | 0;
