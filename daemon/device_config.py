@@ -6,6 +6,7 @@ from aiomqtt import Client
 
 from config import MQTT_HOST, MQTT_PORT, TOPIC_CONFIG
 from db import get_all_settings
+from tz_utils import tz_offset_sec
 
 
 async def build_device_config() -> dict:
@@ -39,6 +40,7 @@ async def build_device_config() -> dict:
         "ai_confidence_min": int(s.get("ai_confidence_min", 60)),
         "ai_fatigue_minutes": int(s.get("ai_fatigue_minutes", 45)),
         "ai_fallback_heuristics": s.get("ai_fallback_heuristics", "1") == "1",
+        "tz_offset_sec": tz_offset_sec(),
     }
 
 
