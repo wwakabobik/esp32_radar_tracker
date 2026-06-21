@@ -38,7 +38,6 @@ static unsigned long lastNextGestureMs = 0;
 static unsigned long lastAiStatePublish = 0;
 static unsigned long lastLocalDisplayMs = 0;
 static unsigned long localModeAuthorityUntilMs = 0;
-static bool lastMqttConnected = false;
 static String lastPublishedAiState;
 
 static void applyMode(const String &mode, bool fromHub = false);
@@ -77,7 +76,8 @@ void setup() {
         [](const String &url) { Ota::performUpdate(url); },
         [](const String &message) { handleDisplayMessage(message); },
         [](const String &message) { handleConfigMessage(message); },
-        [](uint32_t) { localModeAuthorityUntilMs = 0; });
+        [](uint32_t) { localModeAuthorityUntilMs = 0; },
+        []() { renderLocalDisplay(); });
 
     applyMode(ModeStore::load(), false);
     renderLocalDisplay();
@@ -162,13 +162,7 @@ void loop() {
 
     if (gButtonConfig.current().gpioProbe) gpioProbe.loop(mqtt);
 
-    const bool mqttUp = mqtt.connected();
-    if (lastMqttConnected && !mqttUp) {
-        renderLocalDisplay();
-    }
-    lastMqttConnected = mqttUp;
-
-    if (!mqttUp) {
+    if (!mqtt.hubOnline()) {
         const unsigned long now = millis();
         if (!display.overlayActive() && now - lastLocalDisplayMs >= 1000) {
             lastLocalDisplayMs = now;
@@ -208,6 +202,7 @@ static void handleConfigMessage(const String &message) {
 }
 
 static void handleHubModeRequest(const String &mode) {
+    if (!mqtt.hubOnline()) return;
     if (mode != "work" && mode != "sleep" && mode != "media") return;
     if (mode == currentMode) return;
     if (localModeAuthorityUntilMs != 0 && millis() < localModeAuthorityUntilMs) {
@@ -258,7 +253,7 @@ static void applyMode(const String &mode, bool fromHub) {
         display.setModeLetter(currentMode.c_str());
     }
 
-    if (!mqtt.connected()) {
+    if (!mqtt.hubOnline()) {
         renderLocalDisplay();
     }
 }
@@ -320,7 +315,7 @@ static void handleButton(const ButtonMessage &msg) {
 }
 
 static void handleDisplayMessage(const String &message) {
-    if (!mqtt.connected()) return;
+    if (!mqtt.hubOnline()) return;
     StaticJsonDocument<1024> doc;
     if (deserializeJson(doc, message) != DeserializationError::Ok) return;
     if (!doc["widgets"].is<JsonArray>()) return;
