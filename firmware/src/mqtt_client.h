@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <atomic>
 #include <functional>
 #include <vector>
 #include "display.h"
@@ -20,9 +21,10 @@ public:
     void begin(ModeHandler modeHandler, OtaHandler otaHandler, DisplayHandler displayHandler,
                ConfigHandler configHandler = nullptr, SyncAckHandler syncAckHandler = nullptr,
                AutonomousHandler autonomousHandler = nullptr);
-    void loop();
+    void processInbound();
+    bool takeAutonomousNotify();
     bool connected() { return client_.connected(); }
-    bool hubOnline() const { return hubOnline_; }
+    bool hubOnline() const { return hubOnline_.load(); }
     void setCurrentMode(const char *mode);
     const String &currentMode() const { return currentMode_; }
     void publishRadar(const RadarReading &reading, uint8_t aiState = 255, uint8_t aiConfidence = 0);
@@ -36,6 +38,17 @@ public:
     void flushSync();
 
 private:
+    struct OutboundMsg {
+        char topic[48];
+        char payload[768];
+        bool retained = false;
+    };
+
+    struct InboundMsg {
+        char topic[48];
+        char payload[1024];
+    };
+
     WiFiClient wifiClient_;
     PubSubClient client_{wifiClient_};
     ModeHandler modeHandler_;
@@ -44,7 +57,8 @@ private:
     ConfigHandler configHandler_;
     SyncAckHandler syncAckHandler_;
     AutonomousHandler autonomousHandler_;
-    bool hubOnline_ = false;
+    std::atomic<bool> hubOnline_{false};
+    std::atomic<bool> autonomousNotify_{false};
     uint8_t publishFailStreak_ = 0;
     unsigned long lastHubOkMs_ = 0;
     unsigned long lastPublishFailMs_ = 0;
@@ -58,6 +72,8 @@ private:
     uint32_t inflightToId_ = 0;
     String currentMode_ = "work";
 
+    void networkTick();
+    void startNetworkTask();
     void ensureWifi();
     void ensureMqtt();
     void subscribeTopics();
@@ -65,12 +81,15 @@ private:
     void handleSyncAck(const String &message);
     void loadHubAckId();
     void saveHubAckId();
+    void dispatchMessage(const char *topic, const char *payload);
     void onMessage(char *topic, byte *payload, unsigned int length);
     void onHubConnected();
     void enterAutonomousMode();
     void markHubOk();
     void markPublishFailed();
     bool publishRaw(const char *topic, const char *payload, bool retained = false);
+    void enqueuePublish(const char *topic, const char *payload, bool retained = false);
     static void staticCallback(char *topic, byte *payload, unsigned int length);
+    static void networkTask(void *arg);
     static MqttHub *instance_;
 };
