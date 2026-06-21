@@ -162,6 +162,7 @@ class HubDaemon:
             return
 
         if topic == TOPIC_STATUS:
+            was_online = self.online
             self.online = True
             self.last_status_at = datetime.now(timezone.utc)
             status = json.loads(text)
@@ -175,6 +176,10 @@ class HubDaemon:
             pending = int(status.get("pending_events") or 0)
             if pending:
                 logger.info("Device reconnected with %d pending events", pending)
+            if not was_online:
+                from device_config import publish_device_config
+
+                await publish_device_config(client=self._mqtt_client)
             return
 
     async def _handle_button(self, data: dict) -> None:

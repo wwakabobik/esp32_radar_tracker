@@ -2,6 +2,8 @@
 
 #include <Preferences.h>
 #include <WiFi.h>
+#include <cctype>
+#include <cstring>
 #include <time.h>
 
 static const char *PREFS_NS = "phub";
@@ -48,6 +50,39 @@ void TimeSync::setUtcOffsetSec(int32_t sec) {
         prefs.end();
     }
     Serial.printf("TZ offset: %+d sec\n", sec);
+}
+
+static bool parseClockHm(const char *text, int &hour, int &min) {
+    if (!text || std::strlen(text) != 5 || text[2] != ':') return false;
+    if (!std::isdigit(static_cast<unsigned char>(text[0])) ||
+        !std::isdigit(static_cast<unsigned char>(text[1])) ||
+        !std::isdigit(static_cast<unsigned char>(text[3])) ||
+        !std::isdigit(static_cast<unsigned char>(text[4]))) {
+        return false;
+    }
+    hour = (text[0] - '0') * 10 + (text[1] - '0');
+    min = (text[3] - '0') * 10 + (text[4] - '0');
+    return hour >= 0 && hour <= 23 && min >= 0 && min <= 59;
+}
+
+void TimeSync::learnFromMacClock(const String &clockText) {
+    if (!synced_) return;
+    int macH = 0;
+    int macM = 0;
+    if (!parseClockHm(clockText.c_str(), macH, macM)) return;
+
+    const time_t utc = static_cast<time_t>(nowUnix());
+    struct tm utcTm {};
+    if (!gmtime_r(&utc, &utcTm)) return;
+
+    const int macSec = macH * 3600 + macM * 60;
+    int utcSec = utcTm.tm_hour * 3600 + utcTm.tm_min * 60;
+    int diff = macSec - utcSec;
+    if (diff > 14 * 3600) diff -= 24 * 3600;
+    if (diff < -12 * 3600) diff += 24 * 3600;
+    if (diff < -43200 || diff > 50400) return;
+
+    setUtcOffsetSec(diff);
 }
 
 bool TimeSync::trySync() {
