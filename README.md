@@ -27,7 +27,7 @@ ESP32 and Mac must be on the **same Wi‑Fi**.
 | Discovery   | UDP `:18832` — response includes `mqtt_host` / `ota_host`             |
 
 
-**You do not need to hard-code the Mac IP.** The router may reassign it; the device re-discovers the hub on the next broadcast. The last address is cached in ESP32 NVS; after three failed MQTT connects the cache is cleared and discovery runs again.
+**You do not need to hard-code the Mac IP.** The router may reassign it; the device re-discovers the hub on boot, after MQTT failure, and from periodic hub beacons. The last address is cached in ESP32 NVS.
 
 Optional: `HUB_LAN_IP` in `daemon/.env` if automatic LAN IP detection fails on your Mac.
 
@@ -79,6 +79,7 @@ pip install -r daemon/requirements.txt
 5. `./scripts/flash_firmware.sh` — flash over USB
 6. `pio device monitor` — expect: `Radar ready`, `WiFi OK`, `MQTT connected`
 7. [http://127.0.0.1:18080](http://127.0.0.1:18080) — `Online: yes`
+8. `./scripts/verify_hub.sh` — discovery round-trip, MQTT, radar, display track (media)
 
 ## Quick start
 
@@ -193,6 +194,7 @@ Development / diagnostics under `scripts/service/` (English only):
 | Script               | Purpose                                                |
 | -------------------- | ------------------------------------------------------ |
 | `detect_device.sh`   | Find USB serial port, print chip/flash info            |
+| `verify_hub.sh`      | Discovery + MQTT + online + radar/display smoke test   |
 | `dump_firmware.sh`   | Read full flash → `dumps/`                             |
 | `monitor_serial.sh`  | Colorized serial monitor → `logs/`                     |
 | `capture_traffic.sh` | tshark / mitmproxy helpers → `captures/`, `mitm_logs/` |

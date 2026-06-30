@@ -54,11 +54,13 @@ Early builds used a fixed LAN IP. That broke every time DHCP reassigned the Mac.
 1. ESP32 broadcasts `PHUB_DISCOVER` on UDP `:18832`.
 2. Mac daemon replies JSON: `{mqtt_host, mqtt_port, ota_host, ota_port}`.
 3. ESP32 caches in NVS (`Preferences` ns `phub`).
-4. After **3 failed MQTT connects**, cache clears and discovery runs again.
-
-**Why not mDNS/Bonjour:** fewer moving parts; broadcast JSON is enough on home Wi‑Fi.
+4. On **every MQTT reconnect**, live UDP discovery runs **before** cache.
+5. After a failed connect, cache is cleared and discovery runs again.
+6. Mac also **broadcasts hub JSON every 45s** so devices can pick up a new IP passively.
 
 **Code:** `firmware/src/discovery.cpp`, `daemon/discovery.py`.
+
+**Past bug (fixed):** `ensureMqtt()` reused NVS cache and compile-time `MQTT_HOST` without rediscovering; broadcast used only `255.255.255.255`, which many Wi‑Fi stacks drop.
 
 ---
 
