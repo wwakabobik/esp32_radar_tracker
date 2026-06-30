@@ -58,9 +58,11 @@ Early builds used a fixed LAN IP. That broke every time DHCP reassigned the Mac.
 5. After a failed connect, cache is cleared and discovery runs again.
 6. Mac also **broadcasts hub JSON every 45s** so devices can pick up a new IP passively.
 
+**Autonomous / offline:** when MQTT drops, `hubOnline_` clears immediately, the main loop keeps radar/buttons/display on a local clock, and events buffer to LittleFS. Full UDP discovery is **rate-limited** (45s) so the network task never blocks in a discover loop while the Mac is away; passive beacon listen runs every 3s.
+
 **Code:** `firmware/src/discovery.cpp`, `daemon/discovery.py`.
 
-**Past bug (fixed):** `ensureMqtt()` reused NVS cache and compile-time `MQTT_HOST` without rediscovering; broadcast used only `255.255.255.255`, which many Wi‑Fi stacks drop.
+**Past bug (fixed):** `ensureMqtt()` reused NVS cache without rediscovering; broadcast used only `255.255.255.255`. **Regression (fixed in 0.7.5):** `networkTick()` called boot discovery every 25ms when the endpoint was invalid, blocking the network task.
 
 ---
 
