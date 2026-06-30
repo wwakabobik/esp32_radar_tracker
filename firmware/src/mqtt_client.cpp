@@ -19,6 +19,10 @@ static HubDiscovery discovery;
 static HubEndpoint hubEndpoint;
 static uint8_t mqttFailStreak_ = 0;
 static unsigned long lastAnnouncementPollMs_ = 0;
+static unsigned long lastFullDiscoveryMs_ = 0;
+static const unsigned long FULL_DISCOVERY_COOLDOWN_MS = 45000;
+static unsigned long lastBootResolveMs_ = 0;
+static const unsigned long BOOT_RESOLVE_COOLDOWN_MS = 3000;
 static QueueHandle_t s_outQueue = nullptr;
 static QueueHandle_t s_inQueue = nullptr;
 
@@ -36,11 +40,29 @@ static bool applyFallbackHost(HubEndpoint &endpoint) {
     return true;
 }
 
-static bool resolveHubEndpointBoot(HubEndpoint &endpoint) {
+static unsigned long mqttRetryDelayMs() {
+    if (mqttFailStreak_ <= 1) return MQTT_RETRY_MS;
+    if (mqttFailStreak_ <= 5) return MQTT_RETRY_MS * 2;
+    return MQTT_RETRY_MAX_MS;
+}
+
+static bool discoveryCooldownElapsed(unsigned long now) {
+    return lastFullDiscoveryMs_ == 0 || now - lastFullDiscoveryMs_ >= FULL_DISCOVERY_COOLDOWN_MS;
+}
+
+static bool runFullDiscovery(HubEndpoint &endpoint) {
+    const unsigned long now = millis();
+    if (!discoveryCooldownElapsed(now)) return false;
+    lastFullDiscoveryMs_ = now;
     if (discovery.discover(endpoint)) {
         discovery.saveCached(endpoint);
         return true;
     }
+    return false;
+}
+
+static bool resolveHubEndpointBoot(HubEndpoint &endpoint) {
+    if (runFullDiscovery(endpoint)) return true;
     HubEndpoint cached;
     if (discovery.loadCached(cached)) {
         endpoint = cached;
@@ -51,10 +73,10 @@ static bool resolveHubEndpointBoot(HubEndpoint &endpoint) {
 }
 
 static bool rediscoverHubEndpoint(HubEndpoint &endpoint) {
-    discovery.clearCached();
     endpoint.valid = false;
-    if (discovery.discover(endpoint)) {
-        discovery.saveCached(endpoint);
+    if (!discoveryCooldownElapsed(millis())) return false;
+    discovery.clearCached();
+    if (runFullDiscovery(endpoint)) {
         Serial.printf("Hub rediscovered: %s:%d\n", endpoint.mqttHost.toString().c_str(), endpoint.mqttPort);
         return true;
     }
@@ -63,12 +85,6 @@ static bool rediscoverHubEndpoint(HubEndpoint &endpoint) {
         return true;
     }
     return false;
-}
-
-static unsigned long mqttRetryDelayMs() {
-    if (mqttFailStreak_ <= 1) return MQTT_RETRY_MS;
-    if (mqttFailStreak_ <= 5) return MQTT_RETRY_MS * 2;
-    return MQTT_RETRY_MAX_MS;
 }
 
 void MqttHub::staticCallback(char *topic, byte *payload, unsigned int length) {
@@ -304,7 +320,11 @@ void MqttHub::handleSyncAck(const String &message) {
 
 void MqttHub::networkTick() {
     if (WiFi.status() == WL_CONNECTED && !hubEndpoint.valid) {
-        resolveHubEndpointBoot(hubEndpoint);
+        const unsigned long now = millis();
+        if (lastBootResolveMs_ == 0 || now - lastBootResolveMs_ >= BOOT_RESOLVE_COOLDOWN_MS) {
+            lastBootResolveMs_ = now;
+            resolveHubEndpointBoot(hubEndpoint);
+        }
     }
 
     ensureWifi();
