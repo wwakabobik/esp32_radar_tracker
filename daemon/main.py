@@ -7,7 +7,7 @@ import uvicorn
 
 from db import init_db
 from device_config import publish_device_config
-from discovery import discovery_loop
+from discovery import discovery_beacon_loop, discovery_loop
 from hub import HubDaemon, mqtt_loop
 from ota_server import start_ota_server
 from telegram_bot import create_bot_task
@@ -34,6 +34,7 @@ async def main() -> None:
     tasks = [
         asyncio.create_task(mqtt_loop(daemon), name="mqtt"),
         asyncio.create_task(discovery_loop(), name="discovery"),
+        asyncio.create_task(discovery_beacon_loop(), name="discovery-beacon"),
         asyncio.create_task(daemon.display_loop(), name="display"),
         asyncio.create_task(daemon.standup_loop(), name="standup"),
         asyncio.create_task(start_ota_server(), name="ota"),

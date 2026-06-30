@@ -17,4 +17,5 @@ public:
     void saveCached(const HubEndpoint &endpoint);
     void clearCached();
     bool discover(HubEndpoint &out);
+    bool pollAnnouncement(HubEndpoint &out);
 };

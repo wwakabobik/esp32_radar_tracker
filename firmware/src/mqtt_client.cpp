@@ -18,6 +18,7 @@ MqttHub *MqttHub::instance_ = nullptr;
 static HubDiscovery discovery;
 static HubEndpoint hubEndpoint;
 static uint8_t mqttFailStreak_ = 0;
+static unsigned long lastAnnouncementPollMs_ = 0;
 static QueueHandle_t s_outQueue = nullptr;
 static QueueHandle_t s_inQueue = nullptr;
 
@@ -35,32 +36,33 @@ static bool applyFallbackHost(HubEndpoint &endpoint) {
     return true;
 }
 
-static bool resolveHubEndpointCached(HubEndpoint &endpoint) {
-    if (endpoint.valid) return true;
-
+static bool resolveHubEndpointBoot(HubEndpoint &endpoint) {
+    if (discovery.discover(endpoint)) {
+        discovery.saveCached(endpoint);
+        return true;
+    }
     HubEndpoint cached;
     if (discovery.loadCached(cached)) {
         endpoint = cached;
         Serial.printf("Hub cache: %s:%d\n", endpoint.mqttHost.toString().c_str(), endpoint.mqttPort);
         return true;
     }
+    return applyFallbackHost(endpoint);
+}
 
+static bool rediscoverHubEndpoint(HubEndpoint &endpoint) {
+    discovery.clearCached();
+    endpoint.valid = false;
+    if (discovery.discover(endpoint)) {
+        discovery.saveCached(endpoint);
+        Serial.printf("Hub rediscovered: %s:%d\n", endpoint.mqttHost.toString().c_str(), endpoint.mqttPort);
+        return true;
+    }
     if (applyFallbackHost(endpoint)) {
         Serial.printf("Hub fallback: %s:%d\n", endpoint.mqttHost.toString().c_str(), endpoint.mqttPort);
         return true;
     }
-
-    endpoint.valid = false;
     return false;
-}
-
-static bool resolveHubEndpointBoot(HubEndpoint &endpoint) {
-    if (resolveHubEndpointCached(endpoint)) return true;
-    if (discovery.discover(endpoint)) {
-        discovery.saveCached(endpoint);
-        return true;
-    }
-    return applyFallbackHost(endpoint);
 }
 
 static unsigned long mqttRetryDelayMs() {
@@ -180,7 +182,14 @@ void MqttHub::ensureMqtt() {
         TimeSync::trySync();
     }
 
-    if (!resolveHubEndpointCached(hubEndpoint)) return;
+    if (!hubEndpoint.valid || mqttFailStreak_ > 0) {
+        if (mqttFailStreak_ > 0) {
+            rediscoverHubEndpoint(hubEndpoint);
+        } else {
+            resolveHubEndpointBoot(hubEndpoint);
+        }
+    }
+    if (!hubEndpoint.valid) return;
 
     client_.setServer(hubEndpoint.mqttHost, hubEndpoint.mqttPort);
     Serial.printf("Connecting MQTT %s:%d...\n", hubEndpoint.mqttHost.toString().c_str(), hubEndpoint.mqttPort);
@@ -196,6 +205,7 @@ void MqttHub::ensureMqtt() {
         Serial.printf("MQTT connected, pending events=%u\n", gEventLog.pendingAfter(hubAckId_));
     } else {
         mqttFailStreak_++;
+        hubEndpoint.valid = false;
         Serial.printf("MQTT failed rc=%d (streak=%d)\n", client_.state(), mqttFailStreak_);
     }
 }
@@ -303,6 +313,18 @@ void MqttHub::networkTick() {
         if (!client_.loop()) enterAutonomousMode();
     } else if (hubOnline_.load()) {
         hubOnline_.store(false);
+    } else if (WiFi.status() == WL_CONNECTED && !hubEndpoint.valid && !client_.connected()) {
+        const unsigned long now = millis();
+        if (now - lastAnnouncementPollMs_ >= 3000) {
+            lastAnnouncementPollMs_ = now;
+            HubEndpoint announced;
+            if (discovery.pollAnnouncement(announced)) {
+                hubEndpoint = announced;
+                discovery.saveCached(hubEndpoint);
+                Serial.printf("Hub announced: %s:%d\n", hubEndpoint.mqttHost.toString().c_str(),
+                              hubEndpoint.mqttPort);
+            }
+        }
     }
 
     ensureMqtt();
